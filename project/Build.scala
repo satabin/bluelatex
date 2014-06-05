@@ -66,16 +66,17 @@ class BlueBuild extends Build with Pack with Server with Distrib with Tests {
     ) dependsOn(blueCommon)
 
   lazy val commonDeps = Seq(
-    "org.gnieh" %% "tiscaf" % "0.9",
+    "io.spray" % "spray-routing" % "1.3.1",
     "net.tanesha.recaptcha4j" % "recaptcha4j" % "0.0.7",
     "org.apache.pdfbox" % "pdfbox" % "1.8.4" exclude("commons-logging", "commons-logging"),
     "commons-beanutils" % "commons-beanutils" % "1.8.3" exclude("commons-logging", "commons-logging"),
     "commons-collections" % "commons-collections" % "3.2.1",
     "org.fusesource.scalate" %% "scalate-core" % "1.6.1",
-    "com.typesafe.akka" %% "akka-osgi" % "2.3.1",
+    "com.typesafe.akka" %% "akka-osgi" % "2.3.5",
     "org.gnieh" %% "sohva-client" % "1.0.0",
     "org.gnieh" %% "sohva-entities" % "1.0.0",
     "org.gnieh" %% "diffson" % "0.3",
+    "org.gnieh" %% "spray-session" % "0.1.0-SNAPSHOT",
     "javax.mail" % "mail" % "1.4.7",
     "ch.qos.logback" % "logback-classic" % "1.0.13",
     "org.slf4j" % "jcl-over-slf4j" % "1.7.5",
@@ -84,7 +85,7 @@ class BlueBuild extends Build with Pack with Server with Distrib with Tests {
     "org.osgi" % "org.osgi.compendium" % "4.3.0" % "provided",
     "com.typesafe" % "config" % "1.0.2",
     "org.scalatest" %% "scalatest" % "2.2.0" % "test",
-    "com.typesafe.akka" %% "akka-testkit" % "2.3.1" % "test"
+    "com.typesafe.akka" %% "akka-testkit" % "2.3.5" % "test"
   )
 
   lazy val blueMobwrite =

@@ -50,8 +50,8 @@ class CompilationActivator extends BundleActivator {
 
   def start(context: BundleContext): Unit =
     context.trackOne[SynchroServer] {
-      case ServiceAdded(synchro) => deploy(context, synchro)
-      case ServiceRemoved(_)     => undeploy(context)
+      case ServiceAdded(synchro, _) => deploy(context, synchro)
+      case ServiceRemoved(_, _)     => undeploy(context)
     }
 
   def stop(context: BundleContext): Unit =

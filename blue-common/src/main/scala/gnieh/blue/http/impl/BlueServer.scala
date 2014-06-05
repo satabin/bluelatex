@@ -17,65 +17,119 @@ package gnieh.blue
 package http
 package impl
 
-import tiscaf._
-
-import akka.actor.ActorSystem
-
 import org.osgi.framework.BundleContext
 import org.osgi.util.tracker.ServiceTracker
 
 import com.typesafe.config._
 
 import scala.collection.mutable.{
-  Map,
   ListBuffer
 }
 
+import scala.concurrent.duration._
+import scala.concurrent.SyncVar
+
 import common._
 
-class BlueServer(context: BundleContext, system: ActorSystem, configuration: Config, val logger: Logger) extends HServer with Logging {
+import akka.actor.{
+  Actor,
+  ActorSystem,
+  Props
+}
+import akka.io.IO
+import akka.util._
 
-  protected val ports =
-    Set(configuration.getInt("http.port"))
+import spray.can.Http
+import spray.routing.{
+  Route,
+  HttpServiceActor
+}
+import spray.routing.session.{
+  StatefulSessionManager,
+  InMemorySessionManager
+}
+import spray.http.StatusCodes
 
-  protected override val bindHost =
+class BlueServer(context: BundleContext, configuration: Config, val logger: Logger)(implicit system: ActorSystem) extends Logging {
+
+  private implicit val timeout = Timeout(10.seconds)
+
+  val port =
+    configuration.getInt("http.port")
+
+  val host =
     configuration.getString("http.host")
 
-  private val extApp =
-    new ExtensibleApp(configuration, system)
+  private var started =
+    new SyncVar[Boolean]
+  started.put(false)
 
-  private var allApps =
-    Vector[HApp](extApp)
+  private val serverActor =
+    system.actorOf(Props(new ServerActor(configuration, logger)))
 
-  protected def apps =
-    allApps
+  private var sessionManager: Option[StatefulSessionManager[Any]] =
+    None
 
-  private val restTracker =
-    new RestServiceTracker(context, extApp)
+  def start(): Unit = started.synchronized {
+    if(!started.get) {
+      started.take
+      val man = new InMemorySessionManager[Any](configuration)
+      // register the session manager service
+      context.registerService(classOf[StatefulSessionManager[Any]], man, null)
+      sessionManager = Some(man)
+      IO(Http) ! Http.Bind(serverActor, host, port)
+      started.put(true)
+      logInfo("blue server started")
+    }
+  }
+
+  def stop(): Unit = started.synchronized {
+    if(started.get) {
+      started.take
+      sessionManager.foreach(_.shutdown)
+      sessionManager = None
+      IO(Http) ! Http.Unbind(Duration.Inf)
+      // stop the application tracker
+      serviceTracker.close()
+      started.put(false)
+    }
+  }
 
   import OsgiUtils._
 
-  private val appTracker =
-    context.trackAll[HApp] {
-      case ServiceAdded(app)   => allApps = allApps :+ app
-      case ServiceRemoved(app) => allApps = allApps.filter(_ ne app)
+  private val serviceTracker =
+    context.trackAll[BlueApi] {
+      case ServiceAdded(api, id) =>
+        // transfer the event to the actor so that it can act accordingly
+        serverActor ! RouteAdded(api.route, id)
+      case ServiceRemoved(_, id) =>
+        serverActor ! RouteRemoved(id)
     }
-
-  override protected def maxPostDataLength =
-    100000000
-
-  override protected def onStart: Unit = {
-    // start the application tracker
-    restTracker.open()
-  }
-
-  override protected def onStop: Unit = {
-    // stop the application tracker
-    restTracker.close()
-    appTracker.close()
-  }
-
-  logInfo("blue server started")
 
 }
 
+private class ServerActor(config: Config, val logger: Logger) extends HttpServiceActor with Logging {
+
+  def receive = running(Map())
+
+  private def running(routes: Map[Long,Route]): Receive =
+    runRoute(mkRoute(routes)) orElse {
+      case RouteAdded(route, id) =>
+        // a new Rest API is registered
+        context.become(running(routes.updated(id, route)))
+
+      case RouteRemoved(id) =>
+        // a bundle disappeared, remove associated route
+        context.become(running(routes - id))
+    }
+
+  private def mkRoute(routes: Map[Long,Route]): Route =
+    if(routes.isEmpty)
+      reject()
+    else
+      routes.values.reduce(_ ~ _)
+
+}
+
+case class RouteAdded(route: Route, id: Long)
+case class RouteRemoved(id: Long)

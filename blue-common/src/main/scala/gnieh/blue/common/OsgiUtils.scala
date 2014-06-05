@@ -97,7 +97,7 @@ class RichTracker[T](context: BundleContext, clazz: Class[T], singleton: Boolean
           // get the service instance
           val service = context.getService(ref)
           // create the event
-          val event = ServiceAdded(service)
+          val event = ServiceAdded(service, id)
           // notify the handler if defined for this event
           if(handler.isDefinedAt(event))
             handler(event)
@@ -113,7 +113,7 @@ class RichTracker[T](context: BundleContext, clazz: Class[T], singleton: Boolean
           // get the service instance
           val service = context.getService(ref)
           // create the event
-          val event = ServiceRemoved(service)
+          val event = ServiceRemoved(service, id)
           // notify the handler if defined for this event
           if(handler.isDefinedAt(event))
             handler(event)
@@ -130,7 +130,7 @@ class RichTracker[T](context: BundleContext, clazz: Class[T], singleton: Boolean
           // get the service instance
           val service = context.getService(ref)
           // create the event
-          val event = ServiceUpdated(service)
+          val event = ServiceUpdated(service, id)
           // notify the handler if defined for this event
           if(handler.isDefinedAt(event))
             handler(event)
@@ -149,8 +149,9 @@ class RichTracker[T](context: BundleContext, clazz: Class[T], singleton: Boolean
 
 sealed trait TrackerEvent[+T] {
   val service: T
+  val id: Long
 }
-final case class ServiceAdded[T](service: T) extends TrackerEvent[T]
-final case class ServiceRemoved[T](service: T) extends TrackerEvent[T]
-final case class ServiceUpdated[T](service: T) extends TrackerEvent[T]
+final case class ServiceAdded[T](service: T, id: Long) extends TrackerEvent[T]
+final case class ServiceRemoved[T](service: T, id: Long) extends TrackerEvent[T]
+final case class ServiceUpdated[T](service: T, id: Long) extends TrackerEvent[T]
 

@@ -17,7 +17,11 @@ package gnieh.blue
 package common
 package impl
 
-import tiscaf._
+import spray.routing.RequestContext
+import spray.http.{
+  HttpRequest,
+  Uri
+}
 
 import net.tanesha.recaptcha.{
   ReCaptchaImpl,
@@ -33,29 +37,33 @@ class ReCaptchaUtilImpl(configuration: BlueConfiguration) extends ReCaptcha {
   val RECAPTCHA_CHALLENGE_FIELD = "recaptcha_challenge_field"
 
   /** ReCaptcha is enabled if the private key is configured */
-  def enabled_? =
+  val enabled =
     configuration.recaptchaPrivateKey.isDefined
 
-  def verify(talk: HTalk) = if (enabled_?) {
-    val challenge = talk.req.param(RECAPTCHA_CHALLENGE_FIELD)
-    val response = talk.req.param(RECAPTCHA_RESPONSE_FIELD)
+  def apply(context: RequestContext) =
+    (context, configuration.recaptchaPrivateKey) match {
+      case (RequestContext(HttpRequest(_, Uri(_, _, _, query, _), headers, _, _), _, _), Some(privatekey)) =>
+        val challenge = query.get(RECAPTCHA_CHALLENGE_FIELD)
+        val response = query.get(RECAPTCHA_RESPONSE_FIELD)
+        val remoteIp = headers.find(_.name == "X-Real-IP")
 
-    (challenge, response) match {
-      case (Some(c), Some(r)) =>
-        val reCaptcha = new ReCaptchaImpl
+        (challenge, response, remoteIp) match {
+          case (Some(c), Some(r), Some(ip)) =>
+            val reCaptcha = new ReCaptchaImpl
 
-        // no exception will be thrown because with checked that the private key
-        // is defined
-        reCaptcha.setPrivateKey(configuration.recaptchaPrivateKey.get)
+            // no exception will be thrown because with checked that the private key
+            // is defined
+            reCaptcha.setPrivateKey(privatekey)
 
-        val reCaptchaResponse =
-          reCaptcha.checkAnswer(talk.req.remoteIp, c, r)
+            val reCaptchaResponse =
+              reCaptcha.checkAnswer(ip.value, c, r)
 
-        reCaptchaResponse.isValid
-      case _ => false
+            reCaptchaResponse.isValid
+          case _ => false
+        }
+      case (_, None) =>
+        // if not enabled, then the request is authorized
+        true
     }
-  } else {
-    true
-  }
 
 }

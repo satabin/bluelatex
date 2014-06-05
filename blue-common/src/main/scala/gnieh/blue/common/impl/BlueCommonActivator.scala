@@ -23,9 +23,16 @@ import http.impl._
 import org.osgi.framework._
 import org.osgi.service.log.LogService
 
-import akka.actor.ActorSystem
+import akka.actor.{
+  ActorSystem,
+  ActorRef,
+  Props
+}
 import akka.osgi.ActorSystemActivator
+import akka.io.IO
 import akka.util._
+
+import spray.can.Http
 
 import scala.concurrent.duration._
 
@@ -103,8 +110,7 @@ class BlueCommonActivator extends ActorSystemActivator {
       context.registerService(classOf[ReCaptcha], recaptcha, null)
 
       // create and start the http server
-      server = Some(new BlueServer(context, system, config, logger))
-      server.foreach(_.start)
+      server = Some(new BlueServer(context, config, logger)(system))
 
       // register the template engine
       // set the context classloader to the bundle classloader, because

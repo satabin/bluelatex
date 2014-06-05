@@ -56,7 +56,7 @@ class RegisterUserLet(val couch: CouchClient, config: Config, context: BundleCon
     extends SyncBlueLet(config, logger) {
 
   def act(talk: HTalk): Try[Unit] =
-    if(recaptcha.verify(talk)) {
+    /*if(recaptcha.verify(talk)) */{
       val result = for {
         // the mandatory fields
         username <- talk.req.param("username")
@@ -117,12 +117,12 @@ class RegisterUserLet(val couch: CouchClient, config: Config, context: BundleCon
         case (status, response) => talk.setStatus(status).writeJson(response)
       }
 
-    } else {
+    }/* else {
       logWarn(s"ReCaptcha did not verify when trying to create a user")
       Success(talk
         .setStatus(HStatus.Unauthorized)
         .writeJson(ErrorResponse("not_authorized", "ReCaptcha did not verify")))
-    }
+    }*/
 
     private def sendEmail(user: User, email: String, session: Session) = {
       // the user is now registered

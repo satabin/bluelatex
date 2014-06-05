@@ -16,10 +16,6 @@
 package gnieh.blue
 package common
 
-import tiscaf.HTalk
+import spray.routing.RequestContext
 
-trait ReCaptcha {
-
-  def verify(talk: HTalk): Boolean
-
-}
+trait ReCaptcha extends (RequestContext => Boolean)

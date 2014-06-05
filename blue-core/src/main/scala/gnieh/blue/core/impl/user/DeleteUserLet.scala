@@ -55,7 +55,7 @@ class DeleteUserLet(
     extends SyncBlueLet(config, logger) with SyncAuthenticatedLet {
 
   def authenticatedAct(user: UserInfo)(implicit talk: HTalk): Try[Unit] =
-    if(user.name == username && recaptcha.verify(talk)) {
+    if(user.name == username /*&& recaptcha.verify(talk)*/) {
 
       val userid = s"org.couchdb.user:$username"
 
