@@ -30,14 +30,15 @@ import common.{
  *
  *  @author Lucas Satabin
  */
-case class PaperRole(_id: String, authors: UsersGroups, reviewers: UsersGroups, guests: UsersGroups) extends IdRev {
+case class PaperRole(_id: String, authors: UsersGroups, reviewers: UsersGroups, publishers: UsersGroups, guests: UsersGroups) extends IdRev {
 
   def roleOf(user: Option[UserInfo]): Role = user match {
-    case Some(userCtx) if authors.contains(userCtx)   => Author
-    case Some(userCtx) if reviewers.contains(userCtx) => Reviewer
-    case Some(userCtx) if guests.contains(userCtx)    => Guest
-    case Some(userCtx)                                => Other
-    case None                                         => Anonymous
+    case Some(userCtx) if authors.contains(userCtx)    => Author
+    case Some(userCtx) if reviewers.contains(userCtx)  => Reviewer
+    case Some(userCtx) if publishers.contains(userCtx) => Publisher
+    case Some(userCtx) if guests.contains(userCtx)     => Guest
+    case Some(userCtx)                                 => Other
+    case None                                          => Anonymous
   }
 
 }

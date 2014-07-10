@@ -18,7 +18,8 @@ package permission
 
 /** The different roles for a paper:
  *   - an author is simply an user listed as such for the paper,
- *   - a reviewer is an user authenticated user listed as such for the paper,
+ *   - a reviewer is an authenticated user listed as such for the paper,
+ *   - an publisher is a user listed as such for the paper,
  *   - other authenticated users have other role,
  *   - unauthenticated user get the anonymous role.
  *
@@ -28,6 +29,7 @@ package permission
 sealed trait Role
 case object Author extends Role
 case object Reviewer extends Role
+case object Publisher extends Role
 case object Other extends Role
 case object Guest extends Role
 case object Anonymous extends Role

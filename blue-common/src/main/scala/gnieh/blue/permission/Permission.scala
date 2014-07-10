@@ -23,6 +23,8 @@ package permission
 sealed trait Permission
 case object Publish extends Permission
 case object Configure extends Permission
+case object ManageReviewers extends Permission
+case object ViewReviewers extends Permission
 case object Edit extends Permission
 case object Compile extends Permission
 case object Download extends Permission
@@ -35,17 +37,19 @@ case object ChangePhase extends Permission
 object Permission {
 
   def apply(name: String): Option[Permission] = name match {
-    case "publish"      => Some(Publish)
-    case "configure"    => Some(Configure)
-    case "edit"         => Some(Edit)
-    case "compile"      => Some(Compile)
-    case "download"     => Some(Download)
-    case "read"         => Some(Read)
-    case "comment"      => Some(Comment)
-    case "chat"         => Some(Chat)
-    case "fork"         => Some(Fork)
-    case "change-phase" => Some(ChangePhase)
-    case _              => None
+    case "publish"          => Some(Publish)
+    case "configure"        => Some(Configure)
+    case "manage-reviewers" => Some(ManageReviewers)
+    case "view-reviewers"   => Some(ViewReviewers)
+    case "edit"             => Some(Edit)
+    case "compile"          => Some(Compile)
+    case "download"         => Some(Download)
+    case "read"             => Some(Read)
+    case "comment"          => Some(Comment)
+    case "chat"             => Some(Chat)
+    case "fork"             => Some(Fork)
+    case "change-phase"     => Some(ChangePhase)
+    case _                  => None
   }
 
 }

@@ -79,7 +79,7 @@ class CreatePaperLet(
           paper <- manager.saveComponent(newId, Paper(s"$newId:core", name, new Date))
           // add the permissions component to set the creator as author
           roles <- manager.saveComponent(newId, PaperRole(s"$newId:roles", UsersGroups(Set(user.name), Set()), UsersGroups(Set(), Set()),
-            UsersGroups(Set(), Set())))
+            UsersGroups(Set(), Set()), UsersGroups(Set(), Set())))
           user <- entityManager("blue_users").getComponent[User](s"org.couchdb.user:${user.name}")
         } yield {
           if(configuration.paperDir(newId).mkdirs) {

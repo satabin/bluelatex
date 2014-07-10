@@ -7,13 +7,16 @@
     },
     "reviewers": {
       "map": "function(doc) { if(doc.reviewers) { emit(doc._id, doc.reviewers.users); }}"
-    }
+    },
+    "publishers": {
+      "map": "function(doc) { if(doc.publishers) { emit(doc._id, doc.publishers.users); }}"
+    },
     "people": {
       "map": "function(doc) { if(doc.authors) { for(i in doc.authors.users) { emit(doc._id, {'role': 'author', '_id': doc.authors.users[i]}); } } if(doc.reviewers) { for(i in doc.reviewers.users) { emit(doc._id, {'_id': doc.reviewers.users[i], 'role': 'reviewer'}); } }}"
-    }
+    },
     "for": {
       "map": "function(doc) { if(doc.authors) { for(i in doc.authors.users) { emit(doc.authors.users[i], { 'id': doc['sohva-entities-entity'], 'role': 'author' }); } } if(doc.reviewers) { for(i in doc.reviewers.users) { emit(doc.reviewers.users[i], { 'id': doc['sohva-entities-entity'], 'role': 'reviewer' }); } }}"
-    }
+    },
   },
   "validate_doc_update": "function(newDoc, oldDoc, userCtx, secObj) { if(oldDoc && oldDoc.authors && oldDoc.authors.length > 0 && userCtx.roles.indexOf('_admin') == -1 && oldDoc.authors.indexOf(userCtx.name) == -1) { throw 'only authors may modify a paper'; } }"
 }
