@@ -28,21 +28,23 @@ import common._
 
 import com.typesafe.config.Config
 
-import tiscaf._
-
 import gnieh.sohva.control.CouchClient
 
 import scala.io.Source
 
 import scala.util.Try
 
+
+import spray.routing.Route
+
 /** Returns the list of paper a user is involved in, together with his role for this paper.
  *
  *  @author Lucas Satabin
  */
-class GetUserPapersLet(username: String, val couch: CouchClient, config: Config, logger: Logger) extends SyncBlueLet(config, logger) with SyncAuthenticatedLet {
+trait GetUserPapers {
+  this: CoreApi =>
 
-  def authenticatedAct(user: UserInfo)(implicit talk: HTalk): Try[Unit] =
+  def getUserPapers(paperId: String): Route =
     // only authenticated users may see other people information
     view(blue_papers, "papers", "for").query[String, UserRole, Any](key = Some(username)) flatMap { res =>
       val roles = res.values

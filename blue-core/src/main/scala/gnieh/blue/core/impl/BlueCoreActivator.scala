@@ -26,10 +26,13 @@ import com.typesafe.config._
 
 import akka.actor.ActorSystem
 
-import http.RestApi
+import spray.routing.session.StatefulSessionManager
+
+import http.BlueApi
+
 import common._
 
-import gnieh.sohva.control.CouchClient
+import gnieh.sohva.async.CouchClient
 
 /** The `BlueActivator` starts the \BlueLaTeX core system:
  *   - the configuration loader
@@ -46,6 +49,7 @@ class BlueCoreActivator extends BundleActivator {
       loader <- context.get[ConfigurationLoader]
       logger <- context.get[Logger]
       system <- context.get[ActorSystem]
+      sessionManager <- context.get[StatefulSessionManager[Any]]
       couch <- context.get[CouchClient]
       templates <- context.get[Templates]
       mailAgent <- context.get[MailAgent]
@@ -56,7 +60,7 @@ class BlueCoreActivator extends BundleActivator {
       val configuration = new BlueConfiguration(config)
 
       // register the core Rest API
-      context.registerService(classOf[RestApi], new CoreApi(couch, config, system, context, templates, mailAgent, recaptcha, logger), null)
+      context.registerService(classOf[BlueApi], new CoreApi(couch, sessionManager, config, system, context, templates, mailAgent, recaptcha, logger), null)
     } catch {
       case e: Exception =>
         logger.log(LogService.LOG_ERROR, s"Unable to start the core bundle", e)

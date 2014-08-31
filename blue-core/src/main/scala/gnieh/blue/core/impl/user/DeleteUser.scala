@@ -18,8 +18,6 @@ package core
 package impl
 package user
 
-import tiscaf._
-
 import gnieh.sohva.Row
 
 import http._
@@ -39,22 +37,19 @@ import scala.util.{
 
 import gnieh.sohva.control.CouchClient
 
+
+import spray.routing.Route
+
 /** handles unregistration of a user.
  *  When a user unregisters, if there are papers for which he is the single author,
  *  the user cannot be unregistered and the process is aborted.
  *
  *  @author Lucas Satabin
  */
-class DeleteUserLet(
-  username: String,
-  context: BundleContext,
-  val couch: CouchClient,
-  config: Config,
-  recaptcha: ReCaptcha,
-  logger: Logger)
-    extends SyncBlueLet(config, logger) with SyncAuthenticatedLet {
+trait DeleteUser {
+  this: CoreApi =>
 
-  def authenticatedAct(user: UserInfo)(implicit talk: HTalk): Try[Unit] =
+  def deleteUser(username: String): Route =
     if(user.name == username /*&& recaptcha.verify(talk)*/) {
 
       val userid = s"org.couchdb.user:$username"

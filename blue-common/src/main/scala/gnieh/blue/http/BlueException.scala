@@ -14,32 +14,8 @@
  * limitations under the License.
  */
 package gnieh.blue
-package core
-package impl
-package session
+package http
 
-import com.typesafe.config.Config
+import spray.http.StatusCode
 
-import http._
-import common._
-
-import tiscaf._
-
-import gnieh.sohva.control.CouchClient
-
-import scala.util.{
-  Try,
-  Success
-}
-
-/** Get the session data if the request is authenticated.
- *
- *  @author Lucas Satabin
- */
-class GetSessionDataLet(val couch: CouchClient, config: Config, logger: Logger) extends SyncBlueLet(config, logger) with SyncAuthenticatedLet {
-
-  def authenticatedAct(user: UserInfo)(implicit talk: HTalk): Try[Unit] =
-    Success(talk.writeJson(user))
-
-}
-
+case class BlueHttpException(status: StatusCode, key: String, message: String) extends Exception

@@ -15,9 +15,8 @@
  */
 package gnieh.blue
 package core
-package impl.user
-
-import tiscaf._
+package impl
+package user
 
 import http._
 import common._
@@ -33,15 +32,18 @@ import scala.util.{
 
 import gnieh.sohva.control.CouchClient
 
+
+import spray.routing.Route
+
 /** Generates a password reset token and send it per email.
  *
  *  @author Lucas Satabin
  */
-class GeneratePasswordReset(username: String, templates: Templates, mailAgent: MailAgent, val couch: CouchClient, config: Config, logger: Logger)
-    extends SyncBlueLet(config, logger) with SyncAuthenticatedLet {
+trait GeneratePasswordReset {
+  this: CoreApi =>
 
   // if the user is authenticated, he cannot generate the password reset token for other people
-  def authenticatedAct(user: UserInfo)(implicit talk: HTalk): Try[Unit] =
+  def generatePasswordReset(username: String): Route =
     if(user.name == username)
       unauthenticatedAct(talk)
     else

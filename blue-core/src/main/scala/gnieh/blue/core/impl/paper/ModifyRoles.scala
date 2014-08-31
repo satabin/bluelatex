@@ -23,28 +23,18 @@ import couch.PaperRole
 import common._
 import permission._
 
-import com.typesafe.config.Config
-
-import tiscaf._
-
 import gnieh.diffson._
 
-import scala.io.Source
-
-import scala.util.{
-  Try,
-  Success
-}
-
-import gnieh.sohva.control.CouchClient
+import spray.routing.Route
 
 /** Handle JSON Patches that add/remove/modify people involved in the given paper
  *
  *  @author Lucas Satabin
  */
-class ModifyRolesLet(paperId: String, val couch: CouchClient, config: Config, logger: Logger) extends SyncRoleLet(paperId, config, logger) {
+trait ModifyRoles {
+  this: CoreApi =>
 
-  def roleAct(user: UserInfo, role: Role)(implicit talk: HTalk): Try[Unit] = role match {
+  def modifyRoles(paperId: String): Route = role match {
     case Author =>
       // only authors may modify this list
       (talk.req.octets, talk.req.header("if-match")) match {

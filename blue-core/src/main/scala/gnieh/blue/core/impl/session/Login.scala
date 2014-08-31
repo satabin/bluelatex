@@ -23,8 +23,6 @@ import com.typesafe.config.Config
 import http._
 import common._
 
-import tiscaf._
-
 import scala.util.{
   Try,
   Success
@@ -32,14 +30,18 @@ import scala.util.{
 
 import gnieh.sohva.control.CouchClient
 
+
+import spray.routing.Route
+
 /** Log the user in.
  *  It delegates to the CouchDB login system and keeps track of the CouchDB cookie
  *
  *  @author Lucas Satabin
  */
-class LoginLet(val couch: CouchClient, config: Config, logger: Logger) extends SyncBlueLet(config, logger) {
+trait Login {
+  this: CoreApi =>
 
-  def act(talk: HTalk): Try[Any] = {
+  val login: Route = {
     implicit val t = talk
     (talk.req.param("username"), talk.req.param("password")) match {
       case (Some(username), Some(password)) =>

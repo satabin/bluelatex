@@ -15,9 +15,8 @@
  */
 package gnieh.blue
 package core
-package impl.user
-
-import tiscaf._
+package impl
+package user
 
 import http._
 import common._
@@ -32,13 +31,17 @@ import scala.util.{
 
 import gnieh.sohva.control.CouchClient
 
+
+import spray.routing.Route
+
 /** Performs the password reset action for a given user.
  *
  *  @author Lucas Satabin
  */
-class ResetUserPassword(username: String, val couch: CouchClient, config: Config, logger: Logger) extends SyncBlueLet(config, logger) {
+trait ResetUserPassword {
+  this: CoreApi =>
 
-  def act(talk: HTalk): Try[Unit] = {
+  val resetUserPassword: Route = {
     val token = talk.req.param("reset_token")
     val password1 = talk.req.param("new_password1")
     val password2 = talk.req.param("new_password2")

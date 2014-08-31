@@ -22,8 +22,6 @@ import com.typesafe.config.Config
 
 import java.io.FileInputStream
 
-import tiscaf._
-
 import resource._
 
 import http._
@@ -34,43 +32,54 @@ import scala.util.Try
 
 import gnieh.sohva.control.CouchClient
 
+import spray.http.{
+  MediaTypes,
+  StatusCodes
+}
+
+import spray.routing.Route
+
 /** Retrieves some resource associated to the paper.
  *
  *  @author Lucas Satabin
  */
-class GetResourceLet(paperId: String, resourceName: String, val couch: CouchClient, config: Config, logger: Logger) extends SyncRoleLet(paperId, config, logger) {
+trait GetResource {
+  this: CoreApi =>
 
-  def roleAct(user: UserInfo, role: Role)(implicit talk: HTalk): Try[Unit] = Try(role match {
+  def getResource(paperId: String, resourceName: String): Route = withRole(paperId) {
     case Author =>
       // only authors may get a resource
-      val file = configuration.resource(paperId, resourceName)
+      val file = paperConfig.resource(paperId, resourceName)
 
       if (file.exists) {
         // returns the resource file
-        for(fis <- managed(new FileInputStream(file))) {
+        val array = managed(new FileInputStream(file)).acquireAndGet { fis =>
           val length = fis.available
-          val array = new Array[Byte](length)
-          fis.read(array)
+          val ar = new Array[Byte](length)
+          fis.read(ar)
 
-          import FileUtils._
+          ar
+        }
 
-          val mime = HMime.exts.get(file.extension.tail.toLowerCase).getOrElse("application/octet-stream")
+        import FileUtils._
 
-          talk.setContentLength(length)
-            .setContentType(mime)
-            .write(array)
+        val mime = MediaTypes.forExtension(file.extension.tail.toLowerCase).getOrElse(MediaTypes.`application/octet-stream`)
+
+        respondWithMediaType(mime) {
+          complete(array)
         }
       } else {
         // resource not found => error 404
-        talk
-          .setStatus(HStatus.NotFound)
-          .writeJson(ErrorResponse("unknown_resource",s"Unable to find resource $resourceName for paper $paperId"))
+        throw new BlueHttpException(
+          StatusCodes.NotFound,
+          "unknown_resource",
+          s"Unable to find resource $resourceName for paper $paperId")
       }
     case _ =>
-      talk
-        .setStatus(HStatus.Forbidden)
-        .writeJson(ErrorResponse("no_sufficient_rights", "Only authors may get resources"))
-  })
+      throw new BlueHttpException(
+        StatusCodes.Forbidden,
+        "no_sufficient_rights",
+        "Only authors may get resources")
+  }
 
 }
-

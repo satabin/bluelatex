@@ -29,7 +29,9 @@ import akka.actor.ActorSystem
 
 import org.osgi.framework.BundleContext
 
-import gnieh.sohva.control.CouchClient
+import gnieh.sohva.async.CouchClient
+
+import spray.routing.session.StatefulSessionManager
 
 /** The core Api providing features to:
  *   - manage users
@@ -40,101 +42,149 @@ import gnieh.sohva.control.CouchClient
  */
 class CoreApi(
   couch: CouchClient,
-  val config: Config,
-  system: ActorSystem,
-  context: BundleContext,
-  templates: Templates,
-  mailAgent: MailAgent,
-  recaptcha: ReCaptcha,
-  logger: Logger) extends RestApi {
+  sessionManager: StatefulSessionManager[Any],
+  config: Config,
+  val system: ActorSystem,
+  val context: BundleContext,
+  val templates: Templates,
+  val mailAgent: MailAgent,
+  val recaptcha: ReCaptcha,
+  val logger: Logger)
+    extends BlueApi(couch, sessionManager, config)
+    with DeleteUser
+    with GeneratePasswordReset
+    with GetUserPapers
+    with ModifyUser
+    with GetUsers
+    with GetUserInfo
+    with Login
+    with Logout
+    with GetSessionData
+    with RegisterUser
+    with ResetUserPassword
+    with CreatePaper
+    with JoinPaper
+    with PartPaper
+    with SaveResource
+    with ModifyPaper
+    with ModifyRoles
+    with GetPaperRoles
+    with GetPaperInfo
+    with BackupPaper
+    with SynchronizedResources
+    with NonSynchronizedResources
+    with GetResource
+    with DeletePaper
+    with DeleteResource {
 
-  POST {
-    // registers a new user
-    case p"users" =>
-      new RegisterUserLet(couch, config, context, templates, mailAgent, recaptcha, logger)
-    // performs password reset
-    case p"users/$username/reset" =>
-      new ResetUserPassword(username, couch, config, logger)
-    // creates a new paper
-    case p"papers" =>
-      new CreatePaperLet(couch, config, context, templates, logger)
-    // join a paper
-    case p"papers/$paperid/join/$peerid" =>
-      new JoinPaperLet(paperid, peerid, system, couch, config, logger)
-    // leave a paper
-    case p"papers/$paperid/part/$peerid" =>
-      new PartPaperLet(paperid, peerid, system, couch, config, logger)
-    // log a user in
-    case p"session" =>
-      new LoginLet(couch, config, logger)
-    // save a non synchronized resource
-    case p"papers/$paperid/files/resources/$resourcename" =>
-      new SaveResourceLet(paperid, resourcename, couch, config, logger)
-  }
-
-  PATCH {
-    // save the data for the authenticated user
-    case p"users/$username/info" =>
-      new ModifyUserLet(username, couch, config, logger)
-    // modify paper information such as paper name
-    case p"papers/$paperid/info" =>
-      new ModifyPaperLet(paperid, couch, config, logger)
-    // add or remove people involved in this paper (authors, reviewers)
-    case p"papers/$paperid/roles" =>
-      new ModifyRolesLet(paperid, couch, config, logger)
-  }
-
-  private val GetUsersLet = new GetUsersLet(couch, config, logger)
-
-  GET {
-    // gets the list of users matching the given pattern
-    case p"users" =>
-      GetUsersLet
-    // gets the data of the given user
-    case p"users/$username/info" =>
-      new GetUserInfoLet(username, couch, config, logger)
-    // gets the list of papers the given user is involved in
-    case p"users/$username/papers" =>
-      new GetUserPapersLet(username, couch, config, logger)
-    // generates a password reset token
-    case p"users/$username/reset" =>
-      new GeneratePasswordReset(username, templates, mailAgent, couch, config, logger)
-    // gets the currently logged in user information
-    case p"session" =>
-      new GetSessionDataLet(couch, config, logger)
-    // gets the list of people involved in this paper with their role
-    case p"papers/$paperid/roles" =>
-      new GetPaperRolesLet(paperid, couch, config, logger)
-    // gets the paper data
-    case p"papers/$paperid/info" =>
-      new GetPaperInfoLet(paperid, couch, config, logger)
-    // downloads a zip archive containing the paper files
-    case p"papers/$paperid/zip" =>
-      new BackupPaperLet("zip", paperid, couch, config, logger)
-    // downloads the list of synchronized resources
-    case p"papers/$paperid/files/synchronized" =>
-      new SynchronizedResourcesLet(paperid, couch, config, logger)
-    // downloads the list of non synchronized resources
-    case p"papers/$paperid/files/resources" =>
-      new NonSynchronizedResourcesLet(paperid, couch, config, logger)
-    // gets a non synchronized resource
-    case p"papers/$paperid/files/resources/$resourcename" =>
-      new GetResourceLet(paperid, resourcename, couch, config, logger)
-  }
-
-  DELETE {
-    // unregisters the authenticated user
-    case p"users/$username" =>
-      new DeleteUserLet(username, context, couch, config, recaptcha, logger)
-    // log a user out
-    case p"session" =>
-      new LogoutLet(couch, config, logger)
-    // deletes a paper
-    case p"papers/$paperid" =>
-      new DeletePaperLet(paperid, context, couch, config, recaptcha, logger)
-    // deletes a non synchronized resource
-    case p"papers/$paperid/files/resources/$resourcename" =>
-      new DeleteResourceLet(paperid, resourcename, couch, config, logger)
-  }
+  val route =
+    post {
+      pathSuffix("users") {
+        // registers a new user
+        registerUser
+      } ~
+      pathSuffix("users" / Segment / "reset") { username =>
+        // performs password reset
+        resetUserPassword
+      } ~
+      pathSuffix("papers") {
+        // creates a new paper
+        createPaper
+      } ~
+      pathSuffix("papers" / Segment / "join" / Segment) { (paperid, peerid) =>
+        // join a paper
+        joinPaper(paperid, peerid)
+      } ~
+      pathSuffix("papers" / Segment / "part" / Segment) { (paperid, peerid) =>
+        // leave a paper
+        partPaper(paperid, peerid)
+      } ~
+      pathSuffix("session") {
+        // log a user in
+        login
+      } ~
+      pathSuffix("papers" / Segment / "files" / "resources" / Segment) { (paperid, resourcename) =>
+        // save a non synchronized resource
+        saveResource(paperid, resourcename)
+      }
+    } ~
+    patch {
+      pathSuffix("users" / Segment / "info") { username =>
+        // save the data for the authenticated user
+        modifyUser(username)
+      } ~
+      pathSuffix("papers" / Segment / "info") { paperid =>
+        // modify paper information such as paper name
+        modifyPaper(paperid)
+      } ~
+      pathSuffix("papers" / Segment / "roles") { paperid =>
+        // add or remove people involved in this paper (authors, reviewers)
+        modifyRoles(paperid)
+      }
+    } ~
+    get {
+      pathSuffix("users") {
+        // gets the list of users matching the given pattern
+        getUsers
+      } ~
+      pathSuffix("users" / Segment / "info") { username =>
+        // gets the data of the given user
+        getUserInfo(username)
+      } ~
+      pathSuffix("users" / Segment / "papers") { username =>
+        // gets the list of papers the given user is involved in
+        getUserPapers(username)
+      } ~
+      pathSuffix("users" / Segment / "reset") { username =>
+        // generates a password reset token
+        generatePasswordReset(username)
+      } ~
+      pathSuffix("session") {
+        // gets the currently logged in user information
+        getSessionData
+      } ~
+      pathSuffix("papers" / Segment / "roles") { paperid =>
+        // gets the list of people involved in this paper with their role
+        getPaperRoles(paperid)
+      } ~
+      pathSuffix("papers" / Segment / "info") { paperid =>
+        // gets the paper data
+        getPaperInfo(paperid)
+      } ~
+      pathSuffix("papers" / Segment / "zip") { paperid =>
+        // downloads a zip archive containing the paper files
+        backupPaper("zip", paperid)
+      } ~
+      pathSuffix("papers" / Segment / "files" / "synchronized") { paperid =>
+        // downloads the list of synchronized resources
+        synchronizedResources(paperid)
+      } ~
+      pathSuffix("papers" / Segment / "files" / "resources") { paperid =>
+        // downloads the list of non synchronized resources
+        nonSynchronizedResources(paperid)
+      } ~
+      pathSuffix("papers" / Segment / "files" / "resources" / Segment) { (paperid, resourcename) =>
+        // gets a non synchronized resource
+        getResource(paperid, resourcename)
+      }
+    } ~
+    delete {
+      pathSuffix("users" / Segment) { username =>
+        // unregisters the authenticated user
+        deleteUser(username)
+      } ~
+      pathSuffix("session") {
+        // log a user out
+        logout
+      } ~
+      pathSuffix("papers" / Segment) { paperid =>
+        // deletes a paper
+        deletePaper(paperid)
+      } ~
+      pathSuffix("papers" / Segment / "files" / "resources" / Segment) { (paperid, resourcename) =>
+        // deletes a non synchronized resource
+        deleteResource(paperid, resourcename)
+      }
+    }
 
 }

@@ -16,44 +16,38 @@
 package gnieh.blue
 package core
 package impl
-package paper
+package session
 
 import com.typesafe.config.Config
 
-import common._
 import http._
-import permission._
-
-import tiscaf._
-
-import resource._
+import common._
 
 import scala.util.Try
 
 import gnieh.sohva.control.CouchClient
 
-/** Deletes some resource associated to the paper.
+
+import spray.routing.Route
+
+/** Log the user in.
+ *  It delegates to the CouchDB login system and keeps track of the CouchDB cookie
  *
  *  @author Lucas Satabin
  */
-class DeleteResourceLet(paperId: String, resourceName: String, val couch: CouchClient, config: Config, logger: Logger) extends SyncRoleLet(paperId, config, logger) {
+trait Logout {
+  this: CoreApi =>
 
-  def roleAct(user: UserInfo, role: Role)(implicit talk: HTalk): Try[Unit] = Try(role match {
-    case Author =>
-      // only authors may get a resource
-      val file = configuration.resource(paperId, resourceName)
-
-      // delete the file
-      val ok = file.delete
-
-      // just say OK
-      talk.writeJson(ok)
-
-    case _ =>
-      talk
-        .setStatus(HStatus.Forbidden)
-        .writeJson(ErrorResponse("no_sufficient_rights", "Only authors may delete resources"))
-  })
+  val logout: Route =
+    couchSession(talk).logout map {
+      case true  =>
+        talk.ses.invalidate
+        talk.writeJson(true)
+      case false =>
+        talk
+          .setStatus(HStatus.InternalServerError)
+          .writeJson(ErrorResponse("unable_to_logout", "Unable to log user out"))
+    }
 
 }
 

@@ -15,9 +15,8 @@
  */
 package gnieh.blue
 package core
-package impl.user
-
-import tiscaf._
+package impl
+package user
 
 import http._
 import couch.User
@@ -45,6 +44,9 @@ import gnieh.sohva.{
   ConflictException
 }
 
+
+import spray.routing.Route
+
 /** Handle registration of a new user into the system.
  *  When a user is created it is created with a randomly generated password and a password reset
  *  token is created and sent to the user email address, so that he can confirm both his email
@@ -52,10 +54,10 @@ import gnieh.sohva.{
  *
  *  @author Lucas Satabin
  */
-class RegisterUserLet(val couch: CouchClient, config: Config, context: BundleContext, templates: Templates, mailAgent: MailAgent, recaptcha: ReCaptcha, logger: Logger)
-    extends SyncBlueLet(config, logger) {
+trait RegisterUser {
+  this: CoreApi =>
 
-  def act(talk: HTalk): Try[Unit] =
+  val registerUser: Route =
     /*if(recaptcha.verify(talk)) */{
       val result = for {
         // the mandatory fields

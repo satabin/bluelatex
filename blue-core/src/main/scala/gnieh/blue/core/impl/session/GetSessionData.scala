@@ -23,29 +23,25 @@ import com.typesafe.config.Config
 import http._
 import common._
 
-import tiscaf._
-
-import scala.util.Try
-
 import gnieh.sohva.control.CouchClient
 
-/** Log the user in.
- *  It delegates to the CouchDB login system and keeps track of the CouchDB cookie
+import scala.util.{
+  Try,
+  Success
+}
+
+
+import spray.routing.Route
+
+/** Get the session data if the request is authenticated.
  *
  *  @author Lucas Satabin
  */
-class LogoutLet(val couch: CouchClient, config: Config, logger: Logger) extends SyncBlueLet(config, logger) {
+trait GetSessionData {
+  this: CoreApi =>
 
-  def act(talk: HTalk): Try[Unit] =
-    couchSession(talk).logout map {
-      case true  =>
-        talk.ses.invalidate
-        talk.writeJson(true)
-      case false =>
-        talk
-          .setStatus(HStatus.InternalServerError)
-          .writeJson(ErrorResponse("unable_to_logout", "Unable to log user out"))
-    }
+  val getSessionData: Route =
+    Success(talk.writeJson(user))
 
 }
 

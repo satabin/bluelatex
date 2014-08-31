@@ -18,44 +18,38 @@ package core
 package impl
 package paper
 
+import com.typesafe.config.Config
+
 import http._
 import common._
 import permission._
 
-import com.typesafe.config.Config
-
-import akka.actor.ActorSystem
-
-import tiscaf._
+import scala.io.Source
 
 import scala.util.Try
 
 import gnieh.sohva.control.CouchClient
 
-/** Notify the system that the user joined a given paper
+
+import spray.routing.Route
+
+/** Gives access to the synchronized resource list for the given paper.
  *
  *  @author Lucas Satabin
  */
-class JoinPaperLet(
-  paperId: String,
-  peerId: String,
-  system: ActorSystem,
-  val couch: CouchClient,
-  config: Config,
-  logger: Logger)
-    extends SyncRoleLet(paperId, config, logger) {
+trait SynchronizedResources {
+  this: CoreApi =>
 
-  def roleAct(user: UserInfo, role: Role)(implicit talk: HTalk): Try[Unit] = Try {
-    role match {
-      case Author | Reviewer =>
-        system.eventStream.publish(Join(peerId, paperId))
-        talk.writeJson(true)
-      case _ =>
-        talk
-          .setStatus(HStatus.Unauthorized)
-          .writeJson(ErrorResponse("no_sufficient_rights", "Only authors and reviewers may join a paper"))
-    }
+  def synchronizedResources(paperId: String): Route = role match {
+    case Author =>
+      // only authors may get the list of synchronized resources
+      import FileUtils._
+      val files = configuration.paperDir(paperId).filter(_.extension.matches(synchronizedExt)).map(_.getName)
+      talk.writeJson(files)
+    case _ =>
+      talk
+        .setStatus(HStatus.Forbidden)
+        .writeJson(ErrorResponse("no_sufficient_rights", "Only authors may see the list of synchronized resources"))
   }
 
 }
-

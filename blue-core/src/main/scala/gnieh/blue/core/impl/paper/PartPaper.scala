@@ -26,25 +26,21 @@ import com.typesafe.config.Config
 
 import akka.actor.ActorSystem
 
-import tiscaf._
-
 import scala.util.Try
 
 import gnieh.sohva.control.CouchClient
+
+
+import spray.routing.Route
 
 /** Notify the system that the user left a given paper
  *
  *  @author Lucas Satabin
  */
-class PartPaperLet(
-  paperId: String,
-  peerId: String,
-  system: ActorSystem,
-  val couch: CouchClient,
-  config: Config,
-  logger: Logger) extends SyncRoleLet(paperId, config, logger) {
+trait PartPaper {
+  this: CoreApi =>
 
-  def roleAct(user: UserInfo, role: Role)(implicit talk: HTalk): Try[Unit] = Try {
+  def partPaper(paperId: String, peerId: String): Route =
     role match {
       case Author | Reviewer =>
         // remove this peer from the current session
@@ -58,7 +54,5 @@ class PartPaperLet(
           .setStatus(HStatus.Unauthorized)
           .writeJson(ErrorResponse("no_sufficient_rights", "Only authors and reviewers may leave a paper"))
     }
-  }
 
 }
-

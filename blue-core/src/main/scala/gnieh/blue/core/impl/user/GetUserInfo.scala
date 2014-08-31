@@ -24,31 +24,29 @@ import common._
 
 import com.typesafe.config.Config
 
-import tiscaf._
-
-import gnieh.sohva.UserInfo
+import gnieh.sohva.control.CouchClient
 
 import scala.io.Source
 
 import scala.util.Try
 
-import gnieh.sohva.control.CouchClient
 
-/** Return a (potentially filtered) list of user names.
+import spray.routing.Route
+
+/** Returns the user data
  *
  *  @author Lucas Satabin
  */
-class GetUsersLet(val couch: CouchClient, config: Config, logger: Logger) extends SyncBlueLet(config, logger) with SyncAuthenticatedLet {
+trait GetUserInfo {
+  this: CoreApi =>
 
-  def authenticatedAct(user: UserInfo)(implicit talk: HTalk): Try[Any] = {
-    val userNames = view(blue_users, "lists", "names")
-    // get the filter parameter if any
-    val filter = talk.req.param("name")
-    val startkey = filter.map(_.toLowerCase)
-    val endkey = startkey.map(_.toLowerCase + "Z")
-    for(users <- userNames.query[String, String, Any](startkey = startkey, endkey = endkey))
-      yield talk.writeJson(users.rows.map(_.key))
-  }
+  def getUserInfo(username: String): Route =
+    // only authenticated users may see other people information
+    entityManager("blue_users").getComponent[User](s"org.couchdb.user:$username") map {
+      // we are sure that the user has a revision because it comes from the database
+      case Some(user) => talk.writeJson(user, user._rev.get)
+      case None       => talk.setStatus(HStatus.NotFound).writeJson(ErrorResponse("not_found", s"No user named $username found"))
+    }
 
 }
 

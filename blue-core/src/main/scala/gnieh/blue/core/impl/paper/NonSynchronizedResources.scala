@@ -20,8 +20,6 @@ package paper
 
 import com.typesafe.config.Config
 
-import tiscaf._
-
 import http._
 import common._
 import permission._
@@ -32,23 +30,35 @@ import scala.util.Try
 
 import gnieh.sohva.control.CouchClient
 
-/** Gives access to the synchronized resource list for the given paper.
+
+import spray.routing.Route
+
+/** Gives access to the non-synchronized resource list for the given paper.
  *
  *  @author Lucas Satabin
  */
-class SynchronizedResourcesLet(paperId: String, val couch: CouchClient, config: Config, logger: Logger) extends SyncRoleLet(paperId, config, logger) {
+trait NonSynchronizedResources {
+  this: CoreApi =>
 
-  def roleAct(user: UserInfo, role: Role)(implicit talk: HTalk): Try[Unit] = Try(role match {
+  def nonSynchronizedResources(paperId: String): Route = role match {
     case Author =>
       // only authors may get the list of synchronized resources
       import FileUtils._
-      val files = configuration.paperDir(paperId).filter(_.extension.matches(synchronizedExt)).map(_.getName)
+      val files =
+        configuration
+          .paperDir(paperId)
+          .filter(f =>
+              !f.extension.matches(synchronizedExt)
+              && !f.extension.matches(generatedExt)
+              && !f.isHidden
+              && !f.isDirectory
+          )
+          .map(_.getName)
       talk.writeJson(files)
     case _ =>
       talk
         .setStatus(HStatus.Forbidden)
-        .writeJson(ErrorResponse("no_sufficient_rights", "Only authors may see the list of synchronized resources"))
-  })
+        .writeJson(ErrorResponse("no_sufficient_rights", "Only authors may see the list of non synchronized resources"))
+  }
 
 }
-

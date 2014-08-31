@@ -29,11 +29,7 @@ import java.io.{
   FileWriter
 }
 
-import tiscaf._
-
-import com.typesafe.config.Config
-
-import org.osgi.framework.BundleContext
+import net.liftweb.json.JBool
 
 import resource._
 
@@ -46,62 +42,72 @@ import scala.util.{
 
 import gnieh.sohva.control.CouchClient
 
+
+import spray.routing.Route
+
+import spray.http.StatusCodes
+
 /** Delete an existing paper.
  *
  *  @author Lucas Satabin
  */
-class DeletePaperLet(
-  paperId: String,
-  context: BundleContext,
-  val couch: CouchClient,
-  config: Config,
-  recaptcha: ReCaptcha,
-  logger: Logger)
-    extends SyncRoleLet(paperId, config, logger) {
+trait DeletePaper {
+  this: CoreApi =>
 
-  def roleAct(user: UserInfo, role: Role)(implicit talk: HTalk): Try[Unit] = role match {
-    case Author =>
-      // only authors may delete a paper
-      // first delete the paper files
-      import FileUtils._
+  def deletePaper(paperId: String): Route =
+    withEntityManager("blue_papers") { paperManager =>
+      withRole(paperId) {
+        case Author =>
+          // only authors may delete a paper
+          // first delete the paper files
+          import FileUtils._
 
-      // delete the paper directory if it exists
-      val paperDir = configuration.paperDir(paperId)
-      val continue =
-        if(paperDir.exists)
-          paperDir.deleteRecursive()
-        else
-          true
+          // delete the paper directory if it exists
+          val paperDir = paperConfig.paperDir(paperId)
+          val continue =
+            if(paperDir.exists)
+              paperDir.deleteRecursive()
+            else
+              true
 
-      if(continue) {
-        import OsgiUtils._
+          if(continue) {
+            import OsgiUtils._
 
-        val manager = entityManager("blue_papers")
-        manager.deleteEntity(paperId) map {
-          case true =>
-            // notifiy deletion hooks
-            for(hook <- context.getAll[PaperDeleted])
-              Try(hook.afterDelete(paperId, entityManager("blue_papers")))
-            talk.writeJson(true)
-          case false =>
-            talk
-              .setStatus(HStatus.InternalServerError)
-              .writeJson(ErrorResponse("cannot_delete_paper", "Unable to delete the paper database"))
-        }
+            onSuccess {
+              paperManager.deleteEntity(paperId) map {
+                case true =>
+                  // notifiy deletion hooks
+                  for(hook <- context.getAll[PaperDeleted])
+                    Try(hook.afterDelete(paperId, paperManager))
 
-      } else {
-        Success(talk
-          .setStatus(HStatus.InternalServerError)
-          .writeJson(ErrorResponse("cannot_delete_paper", "Unable to delete the paper files")))
+                  true
+
+                case false =>
+                  throw new BlueHttpException(
+                    StatusCodes.InternalServerError,
+                    "cannot_delete_paper",
+                    "Unable to delete the paper database")
+              }
+            } { res =>
+              complete(JBool(res))
+            }
+
+          } else {
+            complete(
+              StatusCodes.InternalServerError,
+              ErrorResponse(
+                "cannot_delete_paper",
+                "Unable to delete the paper files"))
+          }
+
+        case _ =>
+          complete(
+            StatusCodes.Forbidden,
+            ErrorResponse(
+              "no_sufficient_rights",
+              "Only authors may delete a paper"))
       }
 
-    case _ =>
-      Success(
-        talk
-          .setStatus(HStatus.Forbidden)
-          .writeJson(ErrorResponse("no_sufficient_rights", "Only authors may delete a paper")))
-
-  }
+    }
 
 }
-

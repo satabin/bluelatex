@@ -14,11 +14,36 @@
  * limitations under the License.
  */
 package gnieh.blue
-package http
+package core
+package impl
+package paper
 
-/** An error response with an error name and a description.
- *  All API should return an error response when something went wrong.
+import http._
+import common._
+import permission._
+
+import net.liftweb.json.JBool
+
+import spray.routing.Route
+
+import spray.http.StatusCodes
+
+/** Notify the system that the user joined a given paper
  *
  *  @author Lucas Satabin
  */
-case class ErrorResponse(name: String, description: String)
+trait JoinPaper {
+  this: CoreApi =>
+
+  def joinPaper(paperId: String, peerId: String): Route = withRole(paperId) {
+    case Author | Reviewer =>
+      system.eventStream.publish(Join(peerId, paperId))
+      complete(JBool(true))
+    case _ =>
+      throw new BlueHttpException(
+        StatusCodes.Unauthorized,
+        "no_sufficient_rights",
+        "Only authors and reviewers may join a paper")
+  }
+
+}

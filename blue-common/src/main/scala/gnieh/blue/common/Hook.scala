@@ -16,7 +16,7 @@
 package gnieh.blue
 package common
 
-import gnieh.sohva.control.entities.EntityManager
+import gnieh.sohva.async.entities.EntityManager
 
 trait PaperCreated {
   def afterCreate(paperId: String, manager: EntityManager): Unit

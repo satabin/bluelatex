@@ -25,8 +25,6 @@ import java.io.{
   ByteArrayOutputStream
 }
 
-import tiscaf._
-
 import resource._
 
 import http._
@@ -37,13 +35,17 @@ import scala.util.Try
 
 import gnieh.sohva.control.CouchClient
 
+
+import spray.routing.Route
+
 /** Saves some resource associated to the paper.
  *
  *  @author Lucas Satabin
  */
-class SaveResourceLet(paperId: String, resourceName: String, val couch: CouchClient, config: Config, logger: Logger) extends SyncRoleLet(paperId, config, logger) {
+trait SaveResource {
+  this: CoreApi =>
 
-  override def partsAcceptor(reqInfo: HReqHeaderData) =
+  def partsAcceptor(reqInfo: HReqHeaderData) =
     Some(new ResourcePartsAcceptor(reqInfo))
 
   class ResourcePartsAcceptor(reqInfo: HReqHeaderData) extends HPartsAcceptor(reqInfo) {
@@ -68,7 +70,7 @@ class SaveResourceLet(paperId: String, resourceName: String, val couch: CouchCli
 
   private var image: Option[Array[Byte]] = None
 
-  def roleAct(user: UserInfo, role: Role)(implicit talk: HTalk): Try[Unit] = Try(role match {
+  def saveResource(paperId: String, resourceName: String): Route = {
     case Author =>
       // only authors may upload a resource
       val data = image.orElse(talk.req.octets)
@@ -101,7 +103,7 @@ class SaveResourceLet(paperId: String, resourceName: String, val couch: CouchCli
       talk
         .setStatus(HStatus.Forbidden)
         .writeJson(ErrorResponse("no_sufficient_rights", "Only authors may upload resources"))
-  })
+  }
 
 }
 

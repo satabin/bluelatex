@@ -24,8 +24,6 @@ import common._
 
 import com.typesafe.config.Config
 
-import tiscaf._
-
 import gnieh.diffson._
 
 import scala.io.Source
@@ -38,13 +36,17 @@ import scala.util.{
 
 import gnieh.sohva.control.CouchClient
 
+
+import spray.routing.Route
+
 /** Handle JSON Patches that modify the user data
  *
  *  @author Lucas Satabin
  */
-class ModifyUserLet(username: String, val couch: CouchClient, config: Config, logger: Logger) extends SyncBlueLet(config, logger) with SyncAuthenticatedLet {
+trait ModifyUser {
+  this: CoreApi =>
 
-  def authenticatedAct(user: UserInfo)(implicit talk: HTalk): Try[Unit] =
+  def modifyUser(username: String): Route =
     if(username == user.name) {
       // a user can only modify his own data
       (talk.req.octets, talk.req.header("if-match")) match {
