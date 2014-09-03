@@ -30,6 +30,7 @@ import scala.util.Try
 
 import gnieh.sohva.control.CouchClient
 
+import spray.http.StatusCodes
 
 import spray.routing.Route
 
@@ -40,12 +41,12 @@ import spray.routing.Route
 trait NonSynchronizedResources {
   this: CoreApi =>
 
-  def nonSynchronizedResources(paperId: String): Route = role match {
+  def nonSynchronizedResources(paperId: String): Route = withRole(paperId) {
     case Author =>
       // only authors may get the list of synchronized resources
       import FileUtils._
       val files =
-        configuration
+        paperConfig
           .paperDir(paperId)
           .filter(f =>
               !f.extension.matches(synchronizedExt)
@@ -54,11 +55,13 @@ trait NonSynchronizedResources {
               && !f.isDirectory
           )
           .map(_.getName)
-      talk.writeJson(files)
+      complete(files)
     case _ =>
-      talk
-        .setStatus(HStatus.Forbidden)
-        .writeJson(ErrorResponse("no_sufficient_rights", "Only authors may see the list of non synchronized resources"))
+      complete(
+        StatusCodes.Forbidden,
+        ErrorResponse(
+          "no_sufficient_rights",
+          "Only authors may see the list of non synchronized resources"))
   }
 
 }

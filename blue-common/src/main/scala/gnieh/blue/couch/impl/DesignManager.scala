@@ -21,7 +21,7 @@ import resource._
 
 import common._
 
-import gnieh.sohva.control._
+import gnieh.sohva.async._
 
 import net.liftweb.json._
 

@@ -27,8 +27,11 @@ import scala.util.Try
 
 import gnieh.sohva.control.CouchClient
 
+import net.liftweb.json.JBool
 
 import spray.routing.Route
+
+import spray.http.StatusCodes
 
 /** Log the user in.
  *  It delegates to the CouchDB login system and keeps track of the CouchDB cookie
@@ -39,15 +42,17 @@ trait Logout {
   this: CoreApi =>
 
   val logout: Route =
-    couchSession(talk).logout map {
-      case true  =>
-        talk.ses.invalidate
-        talk.writeJson(true)
-      case false =>
-        talk
-          .setStatus(HStatus.InternalServerError)
-          .writeJson(ErrorResponse("unable_to_logout", "Unable to log user out"))
+    withCouch { session =>
+      onSuccess(session.logout) {
+        case true  =>
+          invalidate(complete(JBool(true)))
+        case false =>
+          complete(
+            StatusCodes.InternalServerError,
+            ErrorResponse(
+              "unable_to_logout",
+              "Unable to log user out"))
+      }
     }
 
 }
-

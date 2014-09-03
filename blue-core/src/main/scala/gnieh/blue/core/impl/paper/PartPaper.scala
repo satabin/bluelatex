@@ -30,8 +30,11 @@ import scala.util.Try
 
 import gnieh.sohva.control.CouchClient
 
+import net.liftweb.json.JBool
 
 import spray.routing.Route
+
+import spray.http.StatusCodes
 
 /** Notify the system that the user left a given paper
  *
@@ -40,19 +43,30 @@ import spray.routing.Route
 trait PartPaper {
   this: CoreApi =>
 
-  def partPaper(paperId: String, peerId: String): Route =
-    role match {
-      case Author | Reviewer =>
-        // remove this peer from the current session
-        for(peers <- SessionKeys.get[Set[String]](SessionKeys.Peers))
-          talk.ses(SessionKeys.Peers) = peers - peerId
+  type StringSet = Set[String]
 
-        system.eventStream.publish(Part(peerId, Some(paperId)))
-        talk.writeJson(true)
-      case _ =>
-        talk
-          .setStatus(HStatus.Unauthorized)
-          .writeJson(ErrorResponse("no_sufficient_rights", "Only authors and reviewers may leave a paper"))
-    }
+  def partPaper(paperId: String, peerId: String): Route = withRole(paperId) {
+    case Author | Reviewer =>
+      // remove this peer from the current session
+      cookieSession() { (id, map) =>
+        val updated =
+          map.get(SessionKeys.Peers).collect {
+            case s: StringSet => s
+          }.map(peers => map.updated(SessionKeys.Peers, peers - peerId)).getOrElse(map)
+        updateSession(id, map) {
+
+          system.eventStream.publish(Part(peerId, Some(paperId)))
+
+          complete(JBool(true))
+        }
+      }
+
+    case _ =>
+      complete(
+        StatusCodes.Unauthorized,
+        ErrorResponse(
+          "no_sufficient_rights",
+          "Only authors and reviewers may leave a paper"))
+  }
 
 }

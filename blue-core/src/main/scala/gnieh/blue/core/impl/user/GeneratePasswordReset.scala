@@ -32,8 +32,11 @@ import scala.util.{
 
 import gnieh.sohva.control.CouchClient
 
+import spray.http.StatusCodes
 
 import spray.routing.Route
+
+import net.liftweb.json.JBool
 
 /** Generates a password reset token and send it per email.
  *
@@ -43,21 +46,24 @@ trait GeneratePasswordReset {
   this: CoreApi =>
 
   // if the user is authenticated, he cannot generate the password reset token for other people
-  def generatePasswordReset(username: String): Route =
-    if(user.name == username)
-      unauthenticatedAct(talk)
-    else
-      Success(
-        talk
-          .setStatus(HStatus.Forbidden)
-          .writeJson(ErrorResponse("unable_to_generate", "Authenticated users cannot ask password reset for other people")))
- 
-  override def unauthenticatedAct(implicit talk: HTalk): Try[Unit] =
+  def generatePasswordReset(username: String): Route = withUser {
+    case Some(user) if user.name != username =>
+      complete(
+        StatusCodes.Forbidden,
+        ErrorResponse(
+          "unable_to_generate",
+          "Authenticated users cannot ask password reset for other people"))
+
+    case None | Some(_) =>
+      doIt(username)
+  }
+
+  def doIt(username: String): Route = withCouch { session =>
     // generate reset token to send the link in an email
-    couchConfig.asAdmin(couch) { sess =>
+    couchConfig.asAdmin(session.couch) { sess =>
       val cal = Calendar.getInstance
       cal.add(Calendar.SECOND, couchConfig.tokenValidity)
-      for(token <- sess.users.generateResetToken(username, cal.getTime))
+      onSuccess(for(token <- sess.users.generateResetToken(username, cal.getTime))
         yield {
           // send the link to reset the password in an email
           val emailText =
@@ -68,8 +74,10 @@ trait GeneratePasswordReset {
               "token" -> token,
               "validity" -> (couchConfig.tokenValidity / 24 / 3600))
           mailAgent.send(username, "Password Reset Requested", emailText)
-          talk.writeJson(true)
+        }) { _ =>
+          complete(JBool(true))
         }
     }
-}
+  }
 
+}

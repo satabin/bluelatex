@@ -91,18 +91,19 @@ trait ModifyPaper {
 
         case None =>
           // known revision was not sent, precondition failed
-          throw new BlueHttpException(
+          complete(
             StatusCodes.Conflict,
-            "conflict",
-            "Paper revision not provided")
+            ErrorResponse(
+              "conflict",
+              "Paper revision not provided"))
       }
 
     case _ =>
-      throw new BlueHttpException(
+      complete(
         StatusCodes.Forbidden,
-        "no_sufficient_rights",
-        "Only authors may modify the paper data")
+        ErrorResponse(
+          "no_sufficient_rights",
+          "Only authors may modify the paper data"))
   }
 
 }
-

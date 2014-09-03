@@ -19,7 +19,7 @@ package impl
 
 import common._
 
-import gnieh.sohva.control._
+import gnieh.sohva.async._
 
 /** the database manager is in charge of database creation and designs management.
  *

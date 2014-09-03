@@ -45,8 +45,8 @@ import java.util.concurrent.TimeUnit
 
 import com.typesafe.config._
 
-import gnieh.sohva.control.CouchClient
-import gnieh.sohva.control.entities.EntityManager
+import gnieh.sohva.async.CouchClient
+import gnieh.sohva.async.entities.EntityManager
 
 /** Register the configuration loader service that is used by everybody
  *
@@ -102,7 +102,7 @@ class BlueCommonActivator extends ActorSystemActivator {
       val configuration = new BlueConfiguration(config)
 
       // register the mail agent client
-      val mailAgent = new MailAgentImpl(client, configuration, logger)
+      val mailAgent = new MailAgentImpl(client, configuration, logger)(system.dispatcher)
       context.registerService(classOf[MailAgent], mailAgent, null)
 
       // register the recaptcha service

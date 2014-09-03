@@ -21,18 +21,11 @@ package user
 import http._
 import common._
 
-import com.typesafe.config.Config
-
-import scala.util.{
-  Try,
-  Success,
-  Failure
-}
-
-import gnieh.sohva.control.CouchClient
-
-
 import spray.routing.Route
+
+import spray.http.StatusCodes
+
+import net.liftweb.json.JBool
 
 /** Performs the password reset action for a given user.
  *
@@ -41,31 +34,33 @@ import spray.routing.Route
 trait ResetUserPassword {
   this: CoreApi =>
 
-  val resetUserPassword: Route = {
-    val token = talk.req.param("reset_token")
-    val password1 = talk.req.param("new_password1")
-    val password2 = talk.req.param("new_password2")
-    (token, password1, password2) match {
-      case (Some(token), Some(password1), Some(password2)) if password1 == password2 =>
+  def resetUserPassword(username: String): Route = parameters('reset_token.?, 'new_password1.?, 'new_password2.?) {
+    case (Some(token), Some(password1), Some(password2)) if password1 == password2 =>
+      withCouch { userSession =>
         // all parameters given, and passwords match, proceed
-        couchConfig.asAdmin(couch) { sess =>
-          sess.users.resetPassword(username, token, password1) map {
-            case true =>
-              talk.writeJson(true)
-            case false =>
-              talk
-                .setStatus(HStatus.InternalServerError)
-                .writeJson(ErrorResponse("unable_to_reset", "Cannot perform password reset"))
+        onSuccess {
+          couchConfig.asAdmin(userSession.couch) { sess =>
+            sess.users.resetPassword(username, token, password1) map {
+              case true =>
+                ()
+              case false =>
+                throw new BlueHttpException(
+                  StatusCodes.InternalServerError,
+                  "unable_to_reset",
+                  "Cannot perform password reset")
+            }
           }
+        } { _ =>
+          complete(JBool(true))
         }
-      case (t, p1, p2) =>
-        // a parameter is missing or password do not match
-        Success(
-          talk
-            .setStatus(HStatus.BadRequest)
-            .writeJson(ErrorResponse("unable_to_reset", "Wrong parameters")))
-    }
+      }
+    case (t, p1, p2) =>
+      // a parameter is missing or password do not match
+      complete(
+        StatusCodes.BadRequest,
+        ErrorResponse(
+          "unable_to_reset",
+          "Wrong parameters"))
   }
 
 }
-

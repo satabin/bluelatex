@@ -30,8 +30,11 @@ import scala.util.{
 
 import gnieh.sohva.control.CouchClient
 
+import net.liftweb.json.JBool
 
 import spray.routing.Route
+
+import spray.http.StatusCodes
 
 /** Log the user in.
  *  It delegates to the CouchDB login system and keeps track of the CouchDB cookie
@@ -41,25 +44,36 @@ import spray.routing.Route
 trait Login {
   this: CoreApi =>
 
-  val login: Route = {
-    implicit val t = talk
-    (talk.req.param("username"), talk.req.param("password")) match {
-      case (Some(username), Some(password)) =>
-        couchSession.login(username, password) map {
+  val login: Route = parameter('username.?, 'password.?) {
+    case (Some(username), Some(password)) =>
+      withCouch { session =>
+        onSuccess(session.login(username, password)) {
           case true  =>
             // save the current user name in the session
-            talk.ses(SessionKeys.Username) = username
-            talk.writeJson(true)
+            cookieSession() { (id, map) =>
+              val updated =
+                map.get(SessionKeys.Username).collect {
+                  case s: StringSet => s
+                }.map(peers => map.updated(SessionKeys.Username, username)).getOrElse(map)
+              updateSession(id, map) {
+                complete(JBool(true))
+              }
+            }
           case false =>
-            talk
-              .setStatus(HStatus.Unauthorized)
-              .writeJson(ErrorResponse("unable_to_login", "Wrong username and/or password"))
+            complete(
+              StatusCodes.Unauthorized,
+              ErrorResponse(
+                "unable_to_login",
+                "Wrong username and/or password"))
+
         }
-      case (_, _) =>
-        Success(talk
-          .setStatus(HStatus.BadRequest)
-          .writeJson(ErrorResponse("unable_to_login", "Missing login information")))
-    }
+      }
+    case (_, _) =>
+      complete(
+        StatusCodes.BadRequest,
+        ErrorResponse(
+          "unable_to_login",
+          "Missing login information"))
   }
 
 }

@@ -35,17 +35,21 @@ import scala.util.{
   Random
 }
 
-import gnieh.sohva.control.{
+import gnieh.sohva.async.{
   CouchClient,
   Session
 }
+import gnieh.sohva.async.entities.EntityManager
 import gnieh.sohva.{
   SohvaException,
   ConflictException
 }
 
-
 import spray.routing.Route
+
+import spray.http.StatusCodes
+
+import net.liftweb.json.JBool
 
 /** Handle registration of a new user into the system.
  *  When a user is created it is created with a randomly generated password and a password reset
@@ -58,75 +62,82 @@ trait RegisterUser {
   this: CoreApi =>
 
   val registerUser: Route =
-    /*if(recaptcha.verify(talk)) */{
-      val result = for {
-        // the mandatory fields
-        username <- talk.req.param("username")
-        firstName <- talk.req.param("first_name")
-        lastName <- talk.req.param("last_name")
-        email <- talk.req.param("email_address")
-        affiliation = talk.req.param("affiliation")
-      } yield {
-        implicit val t = talk
-        couchConfig.asAdmin(couch) { session =>
-          // generate a random password
-          val password = session._uuid.getOrElse(Random.nextString(20))
-          // first save the standard couchdb user
-          session.users.add(username, password, couchConfig.defaultRoles) flatMap {
-            case true =>
-              val manager = entityManager("blue_users")
-              // now the user is registered as standard couchdb user, we can add the \BlueLaTeX specific data
-              val userid = s"org.couchdb.user:$username"
-              val user = User(username, firstName, lastName, email, affiliation)
-              (for {
-                () <- manager.create(userid, Some("blue-user"))
-                user <- manager.saveComponent(userid, user)
-                _ <- sendEmail(user, email, session)
-              } yield {
-                import OsgiUtils._
-                // notifiy creation hooks
-                couchConfig.asAdmin(couch) { session =>
-                  for(hook <- context.getAll[UserRegistered])
-                    Try(hook.afterRegister(user.name, manager))
+    authorize(recaptcha) {
+      parameters('username.?, 'first_name.?, 'last_name.?, 'email_address.?, 'affiliation.?) {
+        case (Some(username), Some(firstName), Some(lastName), Some(email), affiliation) =>
+          withCouch { userSession =>
+            onSuccess {
+              couchConfig.asAdmin(userSession.couch) { session =>
+                // generate a random password
+                (for {
+                  password <- session._uuid
+                  // first save the standard couchdb user
+                  res <- session.users.add(username, password, couchConfig.defaultRoles)
+                } yield res) recover {
+                  case ConflictException(_) =>
+                    logWarn(s"User $username already exists")
+                    throw new BlueHttpException(
+                      StatusCodes.Conflict,
+                      "unable_to_register",
+                      s"The user $username already exists")
                 }
-
-                (HStatus.Created, true)
-              }) recoverWith {
-                case e =>
-                  //logWarn(s"Unable to create \\BlueLaTeX user $username")
-                  logError(s"Unable to create \\BlueLaTeX user $username", e)
-                  // somehow we couldn't save it
-                  // remove the couchdb user from database
-                  Try(session.users.delete(username))
-                  // send error
-                  Success((HStatus.InternalServerError,
-                    ErrorResponse("unable_to_register", s"Something went wrong when registering the user $username. Please retry")))
               }
-            case false =>
-              logWarn(s"Unable to create CouchDB user $username")
-              Success((HStatus.InternalServerError,
-                ErrorResponse("unable_to_register", s"Something went wrong when registering the user $username. Please retry")))
+            } {
+              case true =>
+                couchConfig.asAdmin(userSession.couch) { session =>
+                  val userManager = new EntityManager(session.database(couchConfig.database("blue_users")))
+                  // now the user is registered as standard couchdb user, we can add the \BlueLaTeX specific data
+                  val userid = s"org.couchdb.user:$username"
+                  val user = User(username, firstName, lastName, email, affiliation)
+                  onSuccess {
+                    (for {
+                      () <- userManager.create(userid, Some("blue-user"))
+                      user <- userManager.saveComponent(userid, user)
+                      _ <- sendEmail(user, session)
+                    } yield {
+                      import OsgiUtils._
+                      // notifiy creation hooks
+                      for(hook <- context.getAll[UserRegistered])
+                        Try(hook.afterRegister(user.name, userManager))
+
+                    }) recover {
+                      case e =>
+                        //logWarn(s"Unable to create \\BlueLaTeX user $username")
+                        logError(s"Unable to create \\BlueLaTeX user $username", e)
+                        // somehow we couldn't save it
+                        // remove the couchdb user from database
+                        Try(session.users.delete(username))
+                        // send error
+                        throw new BlueHttpException(
+                          StatusCodes.InternalServerError,
+                          "unable_to_register",
+                          s"Something went wrong when registering the user $username. Please retry")
+                    }
+                  } { _ =>
+                    complete(StatusCodes.Created, JBool(true))
+                  }
+                }
+              case false =>
+                logWarn(s"Unable to create CouchDB user $username")
+                complete(
+                  StatusCodes.InternalServerError,
+                  "unable_to_register",
+                  s"Something went wrong when registering the user $username. Please retry")
+            }
           }
-        } recover {
-          case ConflictException(_) =>
-            logWarn(s"User $username already exists")
-            (HStatus.Conflict,
-              ErrorResponse("unable_to_register", s"The user $username already exists"))
-        }
+
+        case (_, _, _, _, _) =>
+
+          complete(
+            StatusCodes.BadRequest,
+            ErrorResponse(
+              "unable_to_register",
+              "Missing required parameters"))
       }
 
-      result.getOrElse(Success((HStatus.BadRequest, ErrorResponse("unable_to_register", "Missing parameters")))) map {
-        case (status, response) => talk.setStatus(status).writeJson(response)
-      }
+    }
 
-    }/* else {
-      logWarn(s"ReCaptcha did not verify when trying to create a user")
-      Success(talk
-        .setStatus(HStatus.Unauthorized)
-        .writeJson(ErrorResponse("not_authorized", "ReCaptcha did not verify")))
-    }*/
-
-    private def sendEmail(user: User, email: String, session: Session) = {
+    private def sendEmail(user: User, session: Session) = {
       // the user is now registered
       // generate the password reset token
       val cal = Calendar.getInstance
@@ -134,15 +145,14 @@ trait RegisterUser {
       session.users.generateResetToken(user.name, cal.getTime) map { token =>
         logDebug(s"Sending confirmation email to ${user.email}")
         // send the confirmation email
-        val emailText = templates.layout("emails/register",
+        val email = templates.layout("emails/register",
           "firstName" -> user.first_name,
           "baseUrl" -> config.getString("blue.base-url"),
           "name" -> user.name,
-          "email" -> email,
           "token" -> token,
           "validity" -> (couchConfig.tokenValidity / 24 / 3600))
         logDebug(s"Registration email: $email")
-        mailAgent.send(user.name, "Welcome to \\BlueLaTeX", emailText)
+        mailAgent.send(user.name, "Welcome to \\BlueLaTeX", email)
       } recover {
         case e =>
           logError(s"Unable to generate confirmation token for user ${user.name}", e)

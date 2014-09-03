@@ -18,7 +18,7 @@ package common
 
 import com.typesafe.config.Config
 
-import gnieh.sohva.control._
+import gnieh.sohva.async._
 
 import java.io.File
 

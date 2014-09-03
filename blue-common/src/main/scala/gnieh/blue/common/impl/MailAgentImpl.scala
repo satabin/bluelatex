@@ -26,40 +26,44 @@ import java.util.{
 }
 
 import scala.collection.JavaConverters._
-import scala.util.{
-  Success,
-  Failure
+
+import scala.concurrent.{
+  Future,
+  ExecutionContext
 }
 
-import gnieh.sohva.control._
+import gnieh.sohva.async._
 
 /** Encapsulates the logic to send emails from the \Blue platform
  *
  * @author Lucas Satabin
  */
-class MailAgentImpl(couch: CouchClient, configuration: BlueConfiguration, val logger: Logger) extends MailAgent with Logging {
+class MailAgentImpl(couch: CouchClient, configuration: BlueConfiguration, val logger: Logger)(implicit executor: ExecutionContext) extends MailAgent with Logging {
 
   /** Returns the list of all email addresses */
-  private def retrieveEmail(username: String): Option[String] = {
+  private def retrieveEmail(username: String): Future[Option[String]] = {
     logDebug(s"Looking for email for $username")
     val couchConf = configuration.couch
     couch.database(couchConf.database("blue_users"))
       .design("lists")
       .view("emails")
-      .query[String, String, Nothing](key = Some(username)) match {
-        case Success(result) =>
-          logDebug(s"Found email addresses: ${result.rows}")
-          result.rows
-            .headOption
-            .map(_.value)
-        case Failure(e) =>
+      .query[String, String, Nothing](key = Some(username)) map { result =>
+        logDebug(s"Found email addresses: ${result.rows}")
+        result.rows
+          .headOption
+          .map(_.value)
+      } recover {
+        case e =>
           logError(s"Something wrong happened when retrieving email for $username", e)
           None
       }
   }
 
   def send(username: String, subject: String, text: String): Unit =
-    for(to <- retrieveEmail(username)) try {
+    for {
+      email <- retrieveEmail(username)
+      to <- email
+    } try {
       val from = new InternetAddress(configuration.emailConf.getProperty("mail.from"))
 
       logDebug(s"Sending confirmation email to ${new InternetAddress(to)}")

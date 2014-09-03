@@ -44,20 +44,22 @@ import spray.routing.Route
 trait GetUserPapers {
   this: CoreApi =>
 
-  def getUserPapers(paperId: String): Route =
-    // only authenticated users may see other people information
-    view(blue_papers, "papers", "for").query[String, UserRole, Any](key = Some(username)) flatMap { res =>
-      val roles = res.values
-      val result =
-        (for {
-          (_, UserRole(id, role)) <- roles
-        } yield (id, role)).toList
+  def getUserPapers(username: String): Route =
+    (withView("blue_papers", "papers", "for") & withCouch) { (view, session) =>
+      // only authenticated users may see other people information
+      onSuccess(view.query[String, UserRole, Any](key = Some(username))) { res =>
+        val roles = res.values
+        val result =
+          (for {
+            (_, UserRole(id, role)) <- roles
+          } yield (id, role)).toList
 
-      for(papers <- database(blue_papers).getDocsById[Paper](result.map(id => s"${id._1}:core")))
-        yield talk.writeJson((result zip papers) map {
-          case ((id, role), Paper(_, name, created)) => Map("id" -> id, "role" -> role, "name" -> name, "creation_date" -> created)
-        })
+        onSuccess(session.database(blue_papers).getDocsById[Paper](result.map(id => s"${id._1}:core"))) { papers =>
+          complete((result zip papers) map {
+            case ((id, role), Paper(_, name, created)) => Map("id" -> id, "role" -> role, "name" -> name, "creation_date" -> created)
+          })
+        }
+      }
     }
 
 }
-

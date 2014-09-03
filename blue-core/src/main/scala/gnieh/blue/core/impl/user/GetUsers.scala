@@ -42,15 +42,15 @@ import spray.routing.Route
 trait GetUsers {
   this: CoreApi =>
 
-  val getUsers: Route = {
-    val userNames = view(blue_users, "lists", "names")
-    // get the filter parameter if any
-    val filter = talk.req.param("name")
-    val startkey = filter.map(_.toLowerCase)
-    val endkey = startkey.map(_.toLowerCase + "Z")
-    for(users <- userNames.query[String, String, Any](startkey = startkey, endkey = endkey))
-      yield talk.writeJson(users.rows.map(_.key))
+  val getUsers: Route = withView(blue_users, "lists", "names") { userNames =>
+    parameter('name.?) { filter =>
+      // get the filter parameter if any
+      val startkey = filter.map(_.toLowerCase)
+      val endkey = startkey.map(_.toLowerCase + "Z")
+      onSuccess(userNames.query[String, String, Any](startkey = startkey, endkey = endkey)) { users =>
+        complete(users.rows.map(_.key))
+      }
+    }
   }
 
 }
-

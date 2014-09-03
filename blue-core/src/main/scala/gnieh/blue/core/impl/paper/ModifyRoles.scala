@@ -25,7 +25,16 @@ import permission._
 
 import gnieh.diffson._
 
+import net.liftweb.json.JBool
+
 import spray.routing.Route
+
+import spray.http.{
+  HttpHeaders,
+  StatusCodes
+}
+
+import spray.httpx.unmarshalling.UnmarshallerLifting
 
 /** Handle JSON Patches that add/remove/modify people involved in the given paper
  *
@@ -34,72 +43,68 @@ import spray.routing.Route
 trait ModifyRoles {
   this: CoreApi =>
 
-  def modifyRoles(paperId: String): Route = role match {
+  def modifyRoles(paperId: String): Route = withRole(paperId) {
     case Author =>
       // only authors may modify this list
-      (talk.req.octets, talk.req.header("if-match")) match {
-        case (Some(octets), knownRev @ Some(_)) =>
-          val manager = entityManager("blue_papers")
-          // the modification must be sent as a JSON Patch document
-          // retrieve the paper object from the database
-          manager.getComponent[PaperRole](paperId) flatMap {
-            case Some(roles) if roles._rev == knownRev =>
-              talk.readJson[JsonPatch] match {
-                case Some(patch) =>
-                  // the revision matches, we can apply the patch
-                  val roles1 = patch(Map("authors" -> roles.authors.users, "reviewers" -> roles.reviewers.users))
-                  val roles2 =
-                    roles.copy(
-                      authors = roles.authors.copy(users = roles1("authors")),
-                      reviewers = roles.reviewers.copy(users = roles1("reviewers"))).withRev(knownRev)
-                  // and save the new paper data
-                  for(r <- manager.saveComponent(paperId, roles2))
-                    // save successfully, return ok with the new ETag
-                    // we are sure that the revision is not empty because it comes from the database
-                    yield talk.writeJson(true, r._rev.get)
-                case None =>
-                  // nothing to do
-                  Success(
-                    talk
-                      .setStatus(HStatus.NotModified)
-                      .writeJson(ErrorResponse("nothing_to_do", "No changes sent")))
-              }
-            case Some(_) =>
-              // nothing to do
-              Success(
-                talk
-                  .setStatus(HStatus.Conflict)
-                  .writeJson(ErrorResponse("conflict", "Old role revision provided")))
+      optionalHeaderValuePF { case h: HttpHeaders.`If-Match` => h.value } {
+        case knownRev @ Some(_) =>
+          entity(as[JsonPatch]) { patch =>
+            withEntityManager("blue_papers") { paperManager =>
+              // the modification must be sent as a JSON Patch document
+              // retrieve the paper object from the database
+              onSuccess {
+                paperManager.getComponent[PaperRole](paperId) flatMap {
+                  case Some(roles) if roles._rev == knownRev =>
+                    // the revision matches, we can apply the patch
+                    val roles1 = patch(Map("authors" -> roles.authors.users, "reviewers" -> roles.reviewers.users))
+                    val roles2 =
+                      roles.copy(
+                        authors = roles.authors.copy(users = roles1("authors")),
+                        reviewers = roles.reviewers.copy(users = roles1("reviewers"))).withRev(knownRev)
+                    // and save the new paper data
+                    for(r <- paperManager.saveComponent(paperId, roles2))
+                      // save successfully, return ok with the new ETag
+                      // we are sure that the revision is not empty because it comes from the database
+                      yield r._rev.get
 
-            case None =>
-              // unknown paper
-              Success(
-                talk
-                  .setStatus(HStatus.NotFound)
-                  .writeJson(ErrorResponse("nothing_to_do", s"Unknown paper $paperId")))
+                  case Some(_) =>
+                    // nothing to do
+                    throw new BlueHttpException(
+                      StatusCodes.Conflict,
+                      "conflict",
+                      "Old roles revision provided")
+
+                  case None =>
+                    // unknown paper
+                    throw new BlueHttpException(
+                      StatusCodes.NotFound,
+                      "nothing_to_do",
+                      s"Unknown paper $paperId")
+
+                }
+              } { rev =>
+                respondWithHeader(HttpHeaders.ETag(rev)) {
+                  complete(JBool(true))
+                }
+              }
+            }
 
           }
 
-        case (None, _) =>
-          // nothing to do
-          Success(
-            talk
-              .setStatus(HStatus.NotModified)
-              .writeJson(ErrorResponse("nothing_to_do", "No changes sent")))
-
-        case (_, None) =>
+        case None =>
           // known revision was not sent, precondition failed
-          Success(
-            talk
-              .setStatus(HStatus.Conflict)
-              .writeJson(ErrorResponse("conflict", "Paper revision not provided")))
+          throw new BlueHttpException(
+            StatusCodes.Conflict,
+            "conflict",
+            "Paper revision not provided")
+
       }
+
     case _ =>
-      Success(
-        talk
-          .setStatus(HStatus.Forbidden)
-          .writeJson(ErrorResponse("no_sufficient_rights", "Only authors may modify the list of involved people")))
+      throw new BlueHttpException(
+        StatusCodes.Forbidden,
+        "no_sufficient_rights",
+        "Only authors may modify the paper roles")
   }
 
 }
-

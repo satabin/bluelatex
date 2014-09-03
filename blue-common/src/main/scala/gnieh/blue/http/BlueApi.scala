@@ -31,6 +31,7 @@ import permission.{
 import spray.routing.{
   Route,
   Directives,
+  Directive,
   Directive1,
   Directive0,
   ExceptionHandler,
@@ -53,7 +54,9 @@ import com.typesafe.config.Config
 
 import gnieh.sohva.async.{
   CouchClient,
-  Session
+  CookieSession,
+  Database,
+  View
 }
 import gnieh.sohva.async.entities.EntityManager
 
@@ -122,14 +125,18 @@ abstract class BlueApi(
   val route =
     prefix {
       withCookieSession() { (_, _) =>
-        handleExceptions(exceptionHandler)(routes)
+        handleExceptions(exceptionHandler) {
+          handleRejections(rejectionHandler) {
+            routes
+          }
+        }
       }
     }
 
-  def withCouch: Directive1[Session] = cookieSession() hmap {
+  def withCouch: Directive1[CookieSession] = cookieSession() hmap {
     case id :: map :: HNil =>
       map.get(SessionKeys.Couch).collect {
-        case sess: Session => sess
+        case sess: CookieSession => sess
       } getOrElse {
         // if no couch session is registered, then start a new one
         val sess = couch.startCookieSession
@@ -149,8 +156,22 @@ abstract class BlueApi(
     case None       => reject(UserRequiredRejection)
   }
 
+  def withDatabase(dbName: String): Directive1[Database] = withCouch map { session =>
+    session.database(couchConfig.database(dbName))
+  }
+
+  def withView(dbName: String, design: String, view: String): Directive1[View] = withCouch map { session =>
+    session.database(couchConfig.database(dbName)).design(design).view(view)
+  }
+
   def withEntityManager(dbName: String): Directive1[EntityManager] = withCouch map { session =>
     new EntityManager(session.database(couchConfig.database(dbName)))
+  }
+
+  def withSession: Directive[String :: Map[String, Any] :: HNil] = cookieSession()
+
+  def invalidate: Directive0 = withSession hflatMap { case id :: _ :: HNil =>
+    invalidateSession(id)
   }
 
   def withRole(paperId: String): Directive1[Role] = (withUser & withEntityManager("blue_papers")) hflatMap {

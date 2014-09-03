@@ -35,8 +35,15 @@ import scala.util.Try
 
 import gnieh.sohva.control.CouchClient
 
+import spray.routing.{
+  Route,
+  RejectionHandler,
+  RequestEntityExpectedRejection
+}
 
-import spray.routing.Route
+import spray.http.StatusCodes
+
+import net.liftweb.json.JBool
 
 /** Saves some resource associated to the paper.
  *
@@ -45,40 +52,22 @@ import spray.routing.Route
 trait SaveResource {
   this: CoreApi =>
 
-  def partsAcceptor(reqInfo: HReqHeaderData) =
-    Some(new ResourcePartsAcceptor(reqInfo))
-
-  class ResourcePartsAcceptor(reqInfo: HReqHeaderData) extends HPartsAcceptor(reqInfo) {
-
-    private var input: ByteArrayOutputStream = _
-
-    def open(desc: HPartDescriptor) = {
-      input = new ByteArrayOutputStream
-      true
-    }
-
-    def accept(bytes: Array[Byte]) = {
-      input.write(bytes)
-      true
-    }
-    def close {
-      image = Some(input.toByteArray)
-      input = null
-    }
-    def declineAll { input = null }
+  val contentHandler = RejectionHandler {
+    case List(RequestEntityExpectedRejection, _*) =>
+      complete(
+        StatusCodes.NoContent,
+        ErrorResponse(
+          "no_content",
+          "No file sent to save"))
   }
 
-  private var image: Option[Array[Byte]] = None
-
-  def saveResource(paperId: String, resourceName: String): Route = {
+  def saveResource(paperId: String, resourceName: String): Route = withRole(paperId) {
     case Author =>
       // only authors may upload a resource
-      val data = image.orElse(talk.req.octets)
+      handleRejections(contentHandler) {
+        entity(as[Array[Byte]]) { resourceFile =>
 
-      val file = configuration.resource(paperId, resourceName)
-
-      data match {
-        case Some(resourceFile) =>
+          val file = paperConfig.resource(paperId, resourceName)
 
           // if file does not exist, create it
           if (!file.exists)
@@ -90,20 +79,17 @@ trait SaveResource {
             fos.write(resourceFile)
           }
 
-          talk.writeJson(true)
+          complete(JBool(true))
 
-        case None =>
-          talk
-            .setStatus(HStatus.NoContent)
-            .writeJson(ErrorResponse("no_content", "No file sent to save"))
-
+        }
       }
 
     case _ =>
-      talk
-        .setStatus(HStatus.Forbidden)
-        .writeJson(ErrorResponse("no_sufficient_rights", "Only authors may upload resources"))
+        complete(
+          StatusCodes.Forbidden,
+            ErrorResponse(
+              "no_sufficient_rights",
+              "Only authors may upload resources"))
   }
 
 }
-

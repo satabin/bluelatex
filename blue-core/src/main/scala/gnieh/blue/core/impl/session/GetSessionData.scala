@@ -40,8 +40,8 @@ import spray.routing.Route
 trait GetSessionData {
   this: CoreApi =>
 
-  val getSessionData: Route =
-    Success(talk.writeJson(user))
+  val getSessionData: Route = requireUser { user =>
+    complete(user)
+  }
 
 }
-

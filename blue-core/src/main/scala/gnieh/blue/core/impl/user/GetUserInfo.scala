@@ -30,6 +30,10 @@ import scala.io.Source
 
 import scala.util.Try
 
+import spray.http.{
+  StatusCodes,
+  HttpHeaders
+}
 
 import spray.routing.Route
 
@@ -40,13 +44,21 @@ import spray.routing.Route
 trait GetUserInfo {
   this: CoreApi =>
 
-  def getUserInfo(username: String): Route =
+  def getUserInfo(username: String): Route = withEntityManager("blue_users") { userManager =>
     // only authenticated users may see other people information
-    entityManager("blue_users").getComponent[User](s"org.couchdb.user:$username") map {
+    onSuccess(userManager.getComponent[User](s"org.couchdb.user:$username")) {
       // we are sure that the user has a revision because it comes from the database
-      case Some(user) => talk.writeJson(user, user._rev.get)
-      case None       => talk.setStatus(HStatus.NotFound).writeJson(ErrorResponse("not_found", s"No user named $username found"))
+      case Some(user) =>
+        respondWithHeader(HttpHeaders.ETag(user._rev.get)) {
+          complete(user)
+        }
+      case None =>
+        complete(
+          StatusCodes.NotFound,
+          ErrorResponse(
+            "not_found",
+            s"No user named $username found"))
     }
+  }
 
 }
-

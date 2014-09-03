@@ -43,14 +43,14 @@ import spray.routing.session.StatefulSessionManager
 class CoreApi(
   couch: CouchClient,
   sessionManager: StatefulSessionManager[Any],
-  config: Config,
+  conf: Config,
   val system: ActorSystem,
   val context: BundleContext,
   val templates: Templates,
   val mailAgent: MailAgent,
   val recaptcha: ReCaptcha,
   val logger: Logger)
-    extends BlueApi(couch, sessionManager, config)
+    extends BlueApi(couch, sessionManager, conf)
     with DeleteUser
     with GeneratePasswordReset
     with GetUserPapers
@@ -77,7 +77,7 @@ class CoreApi(
     with DeletePaper
     with DeleteResource {
 
-  val route =
+  val routes =
     post {
       pathSuffix("users") {
         // registers a new user
@@ -85,7 +85,7 @@ class CoreApi(
       } ~
       pathSuffix("users" / Segment / "reset") { username =>
         // performs password reset
-        resetUserPassword
+        resetUserPassword(username)
       } ~
       pathSuffix("papers") {
         // creates a new paper
