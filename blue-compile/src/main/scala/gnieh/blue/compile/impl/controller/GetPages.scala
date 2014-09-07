@@ -16,67 +16,64 @@
 package gnieh.blue
 package compile
 package impl
-package let
 
 import http._
 import common._
 import permission._
 
-import tiscaf._
-
-import com.typesafe.config.Config
-
-import scala.util.{
-  Try,
-  Success,
-  Failure
-}
-
 import org.apache.pdfbox.pdmodel.PDDocument
 
 import resource._
 
-import gnieh.sohva.control.CouchClient
+import spray.routing.Route
+
+import spray.http.StatusCodes
+
+import net.liftweb.json.JInt
 
 /** Handle request that ask for the number of pages in the compiled paper.
  *
  *  @author Lucas Satabin
  */
-class GetPagesLet(paperId: String, val couch: CouchClient, config: Config, logger: Logger) extends SyncRoleLet(paperId, config, logger) {
+trait GetPages {
+  this: CompilationApi =>
 
   import FileUtils._
 
-  def roleAct(user: UserInfo, role: Role)(implicit talk: HTalk): Try[Any] = role match {
+  def getPages(paperId: String): Route = withRole(paperId) {
     case Author | Reviewer =>
 
       // the generated pdf file
-      val pdfFile = configuration.buildDir(paperId) / s"main.pdf"
+      val pdfFile = paperConfig.buildDir(paperId) / s"main.pdf"
 
       if(pdfFile.exists) {
 
           managed(PDDocument.load(pdfFile)).map(_.getNumberOfPages).either match {
             case Right(pages) =>
-              Try(talk.writeJson(pages))
+              complete(JInt(pages))
             case Left(errors) =>
               logError(s"Cannot extract number of pages for paper $paperId", errors.head)
-              Try(
-                talk
-                  .setStatus(HStatus.InternalServerError)
-                  .writeJson(ErrorResponse("unknown_error", "The number of pages could not be extracted")))
+              complete(
+                StatusCodes.InternalServerError,
+                ErrorResponse(
+                  "unknown_error",
+                  "The number of pages could not be extracted"))
           }
 
       } else {
-        Try(
-          talk
-            .setStatus(HStatus.NotFound)
-            .writeJson(ErrorResponse("not_found", "No compiled version of paper $paperId found")))
+        complete(
+          StatusCodes.NotFound,
+          ErrorResponse(
+            "not_found",
+            "No compiled version of paper $paperId found"))
       }
 
     case _ =>
-      Try(
-        talk
-          .setStatus(HStatus.Forbidden)
-          .writeJson(ErrorResponse("no_sufficient_rights", "Only authors and reviewers may see the number of pages")))
+      complete(
+        StatusCodes.Forbidden,
+        ErrorResponse(
+          "no_sufficient_rights",
+          "Only authors and reviewers may see the number of pages"))
 
   }
 

@@ -19,64 +19,89 @@ package impl
 
 import akka.actor.ActorRef
 
-import http.RestApi
+import http._
 import common._
-import let._
 
 import com.typesafe.config.Config
 
 import org.osgi.framework.BundleContext
 
-import gnieh.sohva.control.CouchClient
+import gnieh.sohva.async.CouchClient
+
+import spray.routing.session.StatefulSessionManager
 
 /** The compilation feature Rest API that offers the services to compile
  *  papers
  *
  *  @author Lucas Satabin
  */
-class CompilationApi(context: BundleContext, couch: CouchClient, dispatcher: ActorRef, val config: Config, logger: Logger) extends RestApi {
+class CompilationApi(
+  couch: CouchClient,
+  sessionManager: StatefulSessionManager[Any],
+  conf: Config,
+  val dispatcher: ActorRef,
+  val context: BundleContext,
+  val logger: Logger)
+    extends BlueApi(couch, sessionManager, conf)
+    with Compile
+    with ModifyCompiler
+    with GetCompilers
+    with GetPdf
+    with GetLog
+    with GetPng
+    with GetPages
+    with GetCompilerSettings
+    with GetSyncTeX
+    with Cleanup {
 
-  POST {
-    // join the paper compiler stream
-    case p"papers/$paperid/compiler" =>
-      new CompilerLet(paperid, couch, dispatcher, config, logger)
-  }
-
-  PATCH {
-    // saves the compilation settings
-    case p"papers/$paperid/compiler" =>
-      new ModifyCompilerLet(paperid, couch, dispatcher, config, logger)
-  }
-
-  GET {
-    // return the list of available compilers
-    case p"compilers" =>
-      new GetCompilersLet(context, couch, config, logger)
-    // return the compiled pdf file for the paper, if any
-    case p"papers/$paperid/compiled/pdf" =>
-      new GetPdfLet(paperid, couch, config, logger)
-    // return the last compilation log of any
-    case p"papers/$paperid/compiled/log" =>
-      new GetLogLet(paperid, couch, config, logger)
-    // return the page given as parameter converted as a png image
-    case req @ p"papers/$paperid/compiled/png" =>
-      val page = req.asInt("page").map(math.max(_, 1)).getOrElse(1)
-      new GetPngLet(paperid, page, couch, config, logger)
-    // returns the number of pages in the compiled paper
-    case p"papers/$paperid/compiled/pages" =>
-      new GetPagesLet(paperid, couch, config, logger)
-    // return the compilation settings
-    case p"papers/$paperid/compiler" =>
-      new GetCompilerSettingsLet(paperid, couch, config, logger)
-    // return the SyncTeX file
-    case p"papers/$paperid/synctex" =>
-      new GetSyncTeXLet(paperid, couch, config, logger)
-  }
-
-  DELETE {
-    // cleanup the working directory
-    case p"papers/$paperid/compiler" =>
-      new CleanLet(paperid, couch, config, logger)
-  }
+  val routes =
+    post {
+      // join the paper compiler stream
+      pathSuffix("papers" / Segment / "compiler") { paperid =>
+        compile(paperid)
+      }
+    } ~
+    patch {
+      // saves the compilation settings
+      pathSuffix("papers" / Segment / "compiler") { paperid =>
+        modifyCompiler(paperid)
+      }
+    } ~
+    get {
+      // return the list of available compilers
+      pathSuffix("compilers") {
+        getCompilers
+      } ~
+      // return the compiled pdf file for the paper, if any
+      pathSuffix("papers" / Segment / "compiled" / "pdf") { paperid =>
+        getPdf(paperid)
+      } ~
+      // return the last compilation log of any
+      pathSuffix("papers" / Segment / "compiled" / "log") { paperid =>
+        getLog(paperid)
+      } ~
+      // return the page given as parameter converted as a png image
+      pathSuffix("papers" / Segment / "compiled" / "png") { paperid =>
+        getPng(paperid)
+      } ~
+      // returns the number of pages in the compiled paper
+      pathSuffix("papers" / Segment / "compiled" / "pages") { paperid =>
+        getPages(paperid)
+      } ~
+      // return the compilation settings
+      pathSuffix("papers" / Segment / "compiler") { paperid =>
+        getCompilerSettings(paperid)
+      } ~
+      // return the SyncTeX file
+      pathSuffix("papers" / Segment / "synctex") { paperid =>
+        getSyncTeX(paperid)
+      }
+    } ~
+    delete {
+      // cleanup the working directory
+      pathSuffix("papers" / Segment / "compiled") { paperid =>
+        cleanup(paperid)
+      }
+    }
 
 }

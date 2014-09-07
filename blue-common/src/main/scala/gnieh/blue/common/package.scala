@@ -23,5 +23,18 @@ package object common {
 
   type UserInfo = gnieh.sohva.UserInfo
 
+  implicit class MultiMap[Key,Value](val map: Map[Key, Set[Value]]) extends AnyVal {
+
+    def addBinding(key: Key, value: Value): Map[Key, Set[Value]] = map.get(key) match {
+      case Some(set) =>
+        // add the value to the set
+        map.updated(key, set + value)
+      case None =>
+        // create the binding
+        map.updated(key, Set(value))
+    }
+
+  }
+
 }
 

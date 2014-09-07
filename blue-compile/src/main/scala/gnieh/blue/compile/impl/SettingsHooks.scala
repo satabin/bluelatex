@@ -19,13 +19,15 @@ package impl
 
 import common._
 
-import gnieh.sohva.control.entities.EntityManager
+import gnieh.sohva.async.entities.EntityManager
 
 import org.osgi.service.log.LogService
 
 import com.typesafe.config.Config
 
 import java.util.concurrent.TimeUnit
+
+import scala.concurrent.ExecutionContext.Implicits.global
 
 /** This hooks creates the compiler settings when a paper is created
  *

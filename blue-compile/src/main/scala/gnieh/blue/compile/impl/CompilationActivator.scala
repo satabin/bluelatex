@@ -31,12 +31,14 @@ import akka.routing.{
   RoundRobinPool
 }
 
+import http.BlueApi
+
 import common._
 import compiler._
 
-import http.RestApi
+import gnieh.sohva.async.CouchClient
 
-import gnieh.sohva.control.CouchClient
+import spray.routing.session.StatefulSessionManager
 
 class CompilationActivator extends BundleActivator {
 
@@ -63,6 +65,7 @@ class CompilationActivator extends BundleActivator {
       system <- context.get[ActorSystem]
       couch <- context.get[CouchClient]
       logger <- context.get[LogService]
+      sessionManager <- context.get[StatefulSessionManager[Any]]
     } try {
       val config = loader.load(context.getBundle)
 
@@ -89,7 +92,7 @@ class CompilationActivator extends BundleActivator {
 
       // register the compilation Api
       services +=
-        context.registerService(classOf[RestApi], new CompilationApi(context, couch, disp, config, logger), null)
+        context.registerService(classOf[BlueApi], new CompilationApi(couch, sessionManager, config, disp, context, logger), null)
 
       // register the paper services
       services +=

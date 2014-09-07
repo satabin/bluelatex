@@ -16,32 +16,24 @@
 package gnieh.blue
 package compile
 package impl
-package let
 
-import http._
 import common._
 
-import tiscaf._
-
-import com.typesafe.config.Config
-
-import org.osgi.framework.BundleContext
-
-import scala.util.Try
-
-import gnieh.sohva.control.CouchClient
+import spray.routing.Route
 
 /** Returns the list of compilers that are currently available in \BlueLaTeX
  *  and that can be used to compile the papers
  *
  *  @author Lucas Satabin
  */
-class GetCompilersLet(context: BundleContext, val couch: CouchClient, config: Config, logger: Logger) extends SyncBlueLet(config, logger) with SyncAuthenticatedLet {
+trait GetCompilers {
+  this: CompilationApi =>
 
   import OsgiUtils._
 
-  def authenticatedAct(user: UserInfo)(implicit talk: HTalk): Try[Any] =
-    Try(talk.writeJson(context.getAll[Compiler].map(_.name).toList.sorted))
+  def getCompilers: Route = requireUser { _ =>
+    complete(context.getAll[Compiler].map(_.name).toList.sorted)
+  }
 
 }
 

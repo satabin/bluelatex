@@ -43,8 +43,8 @@ import common._
 
 import couch.Paper
 
-import gnieh.sohva.control._
-import gnieh.sohva.control.entities.EntityManager
+import gnieh.sohva.async._
+import gnieh.sohva.async.entities.EntityManager
 
 import com.typesafe.config.Config
 
@@ -72,7 +72,7 @@ class BackgroundCompilationActor(
   implicit def ec = context.system.dispatcher
 
   override def preStart(): Unit = {
-    context.system.scheduler.scheduleOnce(Duration.Zero, self, Compile)
+    context.system.scheduler.scheduleOnce(Duration.Zero, self, DoCompile)
   }
 
   def receive = receiving(Map(), defaultSettings, None)
@@ -80,7 +80,7 @@ class BackgroundCompilationActor(
   def receiving(clients: Map[String, Promise[CompilationStatus]],
                 settings: CompilerSettings,
                 lastCompilationDate: Option[Date]): Receive = {
-    case Compile =>
+    case DoCompile =>
 
       implicit val timeout = Timeout(settings.timeout.seconds)
 
@@ -142,7 +142,7 @@ class BackgroundCompilationActor(
       }
 
       // schedule the next compilation after the configured interval
-      context.system.scheduler.scheduleOnce(settings.interval.seconds, self, Compile)
+      context.system.scheduler.scheduleOnce(settings.interval.seconds, self, DoCompile)
 
     case settings @ CompilerSettings(_, _, _, _, _) =>
       // settings were changed, take them immediately into account
@@ -167,5 +167,5 @@ class BackgroundCompilationActor(
 
 }
 
-case object Compile
+case object DoCompile
 case class Register(username: String, response: Promise[CompilationStatus])

@@ -3,17 +3,12 @@ package common
 
 import akka.actor._
 
-import scala.collection.mutable.{
-  HashMap,
-  MultiMap,
-  Set
-}
-
-import scala.util.Try
+import scala.concurrent.Future
 
 final case class Join(username: String, resourceid: String)
 final case class Part(username: String, resourceid: Option[String])
 final case class Forward(resourceid: String, msg: Any)
+final case class Create(username: String, resourceid: String, props: Props)
 case object Stop
 
 /** A dispacther that instantiates an actor per resource name.
@@ -24,11 +19,6 @@ case object Stop
  *  @author Lucas Satabin
  */
 abstract class ResourceDispatcher extends Actor {
-
-  // count the number of users using a given resource by name
-  private val users = new HashMap[String, Set[String]] with MultiMap[String, String]
-  // the set of resources a user is connected to
-  private val resources = new HashMap[String, Set[String]] with MultiMap[String, String]
 
   override def preStart(): Unit = {
     // subscribe to the dispatcher events
@@ -42,13 +32,26 @@ abstract class ResourceDispatcher extends Actor {
     context.system.eventStream.unsubscribe(self, classOf[Part])
   }
 
-  final def receive = {
+  implicit def executor = context.system.dispatcher
+
+  final def receive = running(Map(), Map())
+
+  // users: count the number of users using a given resource by name
+  // resources: the set of resources a user is connected to
+  def running(users: Map[String, Set[String]], resources: Map[String, Set[String]]): Receive = {
+    case Create(username, resourceid, props) =>
+      // create the actor and watches it
+      context.watch(context.actorOf(props, name = resourceid))
+      context.become(running(users.updated(resourceid, Set()), resources))
+      // and then rejoin
+      self ! Join(username, resourceid)
+
     case join @ Join(username, resourceid) =>
       // create the actor if nobody uses this resource
       if(!users.contains(resourceid) || users(resourceid).size == 0) {
-        for(props <- props(username, resourceid))
-          context.watch(context.actorOf(props, name = resourceid))
-        users(resourceid) = Set()
+        for(props <- props(username, resourceid)) {
+          Create(username, resourceid, props)
+        }
       }
 
       if(!users(resourceid).contains(username)) {
@@ -62,12 +65,12 @@ abstract class ResourceDispatcher extends Actor {
     case msg @ Part(username, None) =>
       // for all resources the user is connected to, leave it
       for(resourceid <- resources.get(username).getOrElse(Set())) {
-        part(username, resourceid, msg)
+        part(users, resources, username, resourceid, msg)
       }
 
     case msg @ Part(username, Some(resourceid)) =>
       // notify only the corresponding resource
-      part(username, resourceid, msg)
+      part(users, resources, username, resourceid, msg)
 
     case Forward(resourceid, msg) if users.contains(resourceid) =>
       // forward the actual message to the resource instance
@@ -78,7 +81,7 @@ abstract class ResourceDispatcher extends Actor {
       unknownReceiver(resourceid, msg)
 
     case Stop =>
-      context.become(stopping)
+      context.become(stopping(users, resources))
       // dispatch the Stop message to all managed actors
       context.actorSelection("*") ! Stop
       // and stop the managed actors
@@ -86,15 +89,15 @@ abstract class ResourceDispatcher extends Actor {
 
     case Terminated(actor) =>
       // a managed actor was terminated, remove it from the set of managed resources
-      terminated(actor.path.name)
+      terminated(users, resources, false, actor.path.name)
 
   }
 
-  val stopping: Receive = {
+  def stopping(users: Map[String, Set[String]], resources: Map[String, Set[String]]): Receive = {
 
     case Terminated(actor) =>
       // a managed actor was terminated, remove it from the set of managed resources
-      terminated(actor.path.name)
+      terminated(users, resources, true, actor.path.name)
       // when all our managed actors terminated, kill ourselves
       if(users.isEmpty)
         self ! PoisonPill
@@ -106,36 +109,55 @@ abstract class ResourceDispatcher extends Actor {
   }
 
   /** Implement this method to specify how an actor for a yet unknown resource is created */
-  def props(username: String, resourceid: String): Try[Props]
+  def props(username: String, resourceid: String): Future[Props]
 
-  private def part(username: String, resourceid: String, msg: Part): Unit = {
+  private def part(
+    users: Map[String, Set[String]],
+    resources: Map[String, Set[String]],
+    username: String,
+    resourceid: String,
+    msg: Part): Unit = {
     val actor = context.actorSelection(resourceid)
 
-    if(users.contains(resourceid) && users(resourceid).size == 1) {
+    val users1 = if(users.contains(resourceid) && users(resourceid).size == 1) {
       // this was the last user on this resource, kill it
       // after having performed proper cleanup if needed
       actor ! Stop
       actor ! PoisonPill
-      users -= resourceid
+      users - resourceid
     } else if(users.contains(resourceid) && users(resourceid).contains(username)) {
       // just tell the user left
       actor ! msg
-      users(resourceid) -= username
+      users.updated(resourceid, users(resourceid) - username)
+    } else {
+      users
     }
-    if(resources.contains(username) && resources(username).size == 1) {
+    val resources1 = if(resources.contains(username) && resources(username).size == 1) {
       // this was the last resource the user is connected to
-      resources -= username
+      resources - username
     } else if(resources.contains(username)) {
-      resources(username) -= resourceid
+      resources.updated(username, resources(username) - resourceid)
+    } else {
+      resources
     }
+    context.become(running(users1, resources1))
   }
 
-  private def terminated(resourceid: String): Unit = {
+  private def terminated(
+    users: Map[String, Set[String]],
+    resources: Map[String, Set[String]],
+    isStopping: Boolean,
+    resourceid: String): Unit = {
     // remove this resource from the map of resource to connected users
-    users -= resourceid
+    val users1 = users - resourceid
     // remove this resource from the resources each user if connected to
-    for((username, _) <- resources)
-      resources(username) -= resourceid
+    val resources1 = resources.foldLeft(resources) { case (map, (key, set)) =>
+      map.updated(key, set - resourceid)
+    }
+    if(isStopping)
+      context.become(stopping(users1, resources1))
+    else
+      context.become(running(users1, resources1))
   }
 
   /** This method is called when the resource to forward the message is unknown.

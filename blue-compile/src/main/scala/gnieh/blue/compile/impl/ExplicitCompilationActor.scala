@@ -43,8 +43,8 @@ import common._
 
 import couch.Paper
 
-import gnieh.sohva.control._
-import gnieh.sohva.control.entities.EntityManager
+import gnieh.sohva.async._
+import gnieh.sohva.async.entities.EntityManager
 
 import com.typesafe.config.Config
 
@@ -72,7 +72,7 @@ class ExplicitCompilationActor(
   implicit def ec = context.system.dispatcher
 
   override def preStart(): Unit = {
-    context.system.scheduler.scheduleOnce(Duration.Zero, self, Compile)
+    context.system.scheduler.scheduleOnce(Duration.Zero, self, DoCompile)
   }
 
   def receive = receiving(defaultSettings, None)

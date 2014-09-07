@@ -21,13 +21,6 @@ import scala.language.postfixOps
 
 import common._
 
-import gnieh.sohva.control.Database
-
-import scala.util.{
-  Try,
-  Success
-}
-
 import akka.actor.Props
 
 import com.typesafe.config.Config
@@ -35,8 +28,15 @@ import com.typesafe.config.Config
 import org.osgi.framework.BundleContext
 import org.osgi.service.log.LogService
 
-import gnieh.sohva.control.CouchClient
-import gnieh.sohva.control.entities.EntityManager
+import scala.concurrent.Future
+
+import scala.util.Try
+
+import gnieh.sohva.async.{
+  Database,
+  CouchClient
+}
+import gnieh.sohva.async.entities.EntityManager
 
 /** The compilation system actor is responsible for managing
  *  the compilation actor for each paper.
@@ -73,10 +73,10 @@ class CompilationDispatcher(
 
   }
 
-  def getOrCreateSettings(paperId: String, manager: EntityManager): Try[CompilerSettings] =
+  def getOrCreateSettings(paperId: String, manager: EntityManager): Future[CompilerSettings] =
     manager.getComponent[CompilerSettings](paperId).flatMap {
       case Some(settings) =>
-        Success(settings)
+        Future.successful(settings)
       case None =>
         logger.log(LogService.LOG_WARNING, s"compiler settings do not exist for paper $paperId")
         // create the settings in the database and returns it
