@@ -19,24 +19,36 @@ package impl
 
 import http._
 import common._
-import let._
 
 import com.typesafe.config.Config
 
-import gnieh.sohva.control.CouchClient
+import gnieh.sohva.async.CouchClient
+
+import spray.routing.session.StatefulSessionManager
 
 /** The synchronization service API exposes an interface for clients
  *  to synchronize their paper
  *
  *  @author Lucas Satabin
  */
-class SyncApi(couch: CouchClient, val config: Config, synchroServer: SynchroServer, logger: Logger) extends RestApi {
+class SyncApi(
+  override val couch: CouchClient,
+  sessionManager: StatefulSessionManager[Any],
+  conf: Config,
+  val synchroServer: SynchroServer,
+  val logger: Logger)
+    extends BlueApi(couch, sessionManager, conf)
+    with SynchronizeCompat
+    with Synchronize {
 
-  POST {
-    case p"papers/$paperid/q" =>
-      new QLet(paperid, synchroServer, couch, config, logger)
-    case p"papers/$paperid/sync" =>
-      new SynchronizePaperLet(paperid, synchroServer, couch, config, logger)
+  val routes =
+    post {
+      pathSuffix("papers" / Segment / "q") { paperid =>
+        synchronizeCompat(paperid)
+      } ~
+      pathSuffix("papers" / Segment / "sync") { paperid =>
+        synchronize(paperid)
+      }
   }
 
 }

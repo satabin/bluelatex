@@ -25,7 +25,9 @@ import akka.actor._
 import common._
 import http._
 
-import gnieh.sohva.control.CouchClient
+import gnieh.sohva.async.CouchClient
+
+import spray.routing.session.StatefulSessionManager
 
 /** Registers the synchro service
  *
@@ -43,6 +45,7 @@ class SyncServerActivator extends BundleActivator {
       system <- context.get[ActorSystem]
       couch <- context.get[CouchClient]
       logger <- context.get[LogService]
+      sessionManager <- context.get[StatefulSessionManager[Any]]
     } try {
       val config = loader.load(context.getBundle)
       // create the dispatcher actor
@@ -54,7 +57,7 @@ class SyncServerActivator extends BundleActivator {
       _server = Some(server)
 
       //register the Rest API
-      context.registerService(classOf[RestApi], new SyncApi(couch, config, server, logger), null)
+      context.registerService(classOf[BlueApi], new SyncApi(couch, sessionManager, config, server, logger), null)
     } catch {
       case e: Exception =>
         logger.log(LogService.LOG_ERROR, s"Unable to start the synchronization bundle", e)

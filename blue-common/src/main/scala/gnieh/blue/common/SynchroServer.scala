@@ -16,7 +16,7 @@
 package gnieh.blue
 package common
 
-import scala.util.Try
+import scala.concurrent.Future
 
 import java.util.Date
 
@@ -29,20 +29,20 @@ trait SynchroServer {
   /** Starts a new session with the data and returns
    *  the result data for the client
    */
-  def session(data: String): Try[String]
+  def session(data: String): Future[String]
 
   /** Persists the synchronized files for the given paper
    *  This call is synchronous and only returns when all files
    *  are synchronized
    */
-  def persist(paperId: String): Unit
+  def persist(paperId: String): Future[Unit]
 
   /** Retrieve the last modification date of a paper.
    *  This date is updated every time a synchronized file of a paper
    *  (ie, associated to `paperId`) is updated.
    *  This call is synchronous.
    */
-  def lastModificationDate(paperId: String): Date
+  def lastModificationDate(paperId: String): Future[Date]
 }
 
 /** Exception used in case of failure of the session() method.

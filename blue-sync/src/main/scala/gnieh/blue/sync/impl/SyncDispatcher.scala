@@ -21,7 +21,11 @@ import akka.actor.{
   Actor,
   Props
 }
-import scala.util.{Try, Success, Failure}
+
+import scala.util.Failure
+
+import scala.concurrent.Future
+
 import com.typesafe.config.Config
 import org.osgi.framework.BundleContext
 import org.osgi.service.log.LogService
@@ -41,8 +45,8 @@ class SyncDispatcher(bndContext: BundleContext, config: Config, val logger: LogS
   private val dmp = new DiffMatchPatch
   private val store = new FsStore
 
-  def props(username: String, paperId: String): Try[Props] =
-    Try(Props(new SyncActor(configuration, paperId, store, dmp, logger)))
+  def props(username: String, paperId: String): Future[Props] =
+    Future.successful(Props(new SyncActor(configuration, paperId, store, dmp, logger)))
 
   override def unknownReceiver(paperId: String, msg: Any): Unit = msg match {
     case SyncSession(peerId, paperId, commands) =>

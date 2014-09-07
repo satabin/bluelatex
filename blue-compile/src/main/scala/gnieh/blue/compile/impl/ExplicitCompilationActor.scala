@@ -23,7 +23,10 @@ import akka.actor.{
 }
 import akka.util.Timeout
 
-import scala.concurrent.Promise
+import scala.concurrent.{
+  Await,
+  Promise
+}
 import scala.concurrent.duration._
 
 import scala.util.{
@@ -87,7 +90,8 @@ class ExplicitCompilationActor(
       synchro.persist(paperId)
 
       // get the last modification date
-      val lastModificationDate = synchro.lastModificationDate(paperId)
+      val lastModificationDate =
+        Await.result(synchro.lastModificationDate(paperId), Duration.Inf)
 
       // create the build directory
       paperConfig.buildDir(paperId).mkdirs

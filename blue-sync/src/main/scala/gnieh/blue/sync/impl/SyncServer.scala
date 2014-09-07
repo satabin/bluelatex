@@ -28,9 +28,12 @@ import akka.util.Timeout
 import net.liftweb.json._
 import net.liftweb.json.Serialization
 
-import scala.concurrent.{Await, Promise}
+import scala.concurrent.{
+  Future,
+  Promise
+}
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
-import scala.util.{Try, Success, Failure}
 
 import java.util.Date
 
@@ -53,30 +56,24 @@ class SyncServer(dispatcher: ActorRef, configuration: Config) extends SynchroSer
     new SyncActionSerializer +
     new EditSerializer
 
-  def session(data: String): Try[String] = {
+  def session(data: String): Future[String] = {
     val syncSession = Serialization.read[SyncSession](data)
-    Try {
-      val response = Await.result((dispatcher ? Forward(syncSession.paperId, syncSession)).mapTo[SyncSession],
-        timeout.duration)
-      Serialization.write[SyncSession](response)
-    } recoverWith {
-        case e =>
-          Failure(new SynchroFailureException("Unable to get reponse from synchro dispatcher", e))
-    }
+    for(response <- (dispatcher ? Forward(syncSession.paperId, syncSession)).mapTo[SyncSession])
+      yield Serialization.write[SyncSession](response)
   }
 
-  def persist(paperId: String): Unit = {
+  def persist(paperId: String): Future[Unit] = {
     val promise = Promise[Unit]()
 
     dispatcher ! Forward(paperId, PersistPaper(promise))
-    Await.result(promise.future, Duration.Inf)
+    promise.future
   }
 
-  def lastModificationDate(paperId: String): Date = {
+  def lastModificationDate(paperId: String): Future[Date] = {
     val promise = Promise[Date]()
 
     dispatcher ! Forward(paperId, LastModificationDate(promise))
-    Await.result(promise.future, Duration.Inf)
+    promise.future
   }
 
   def shutdown(): Unit = {
