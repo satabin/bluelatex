@@ -16,28 +16,22 @@
 package gnieh.blue
 package web
 
-import tiscaf._
-import let._
-
-import org.osgi.framework.BundleContext
-
-import com.typesafe.config.Config
-
-import http.BlueLet
-
-import scala.util.Try
+import spray.routing.Route
 
 /** Returns the base configuration data needed by the client.
  *
  *  @author Lucas Satabin
  */
-class ConfigLet(context: BundleContext, config: Config) extends HSimpleLet {
+trait Configuration {
+  this: WebApp =>
 
-  import BlueLet._
-
-  def act(talk: HTalk): Unit = {
-    val recaptcha = Try(config.getString("recaptcha.public-key")).toOption
-    val compilationType = Try(config.getString("compiler.compilation-type")).toOption
+  def configuration: Route = {
+    val recaptcha =
+      if(config.hasPath("recaptcha.public-key")) Some(config.getString("recaptcha.public-key"))
+      else None
+    val compilationType =
+      if(config.hasPath("compiler.compilation-type")) Some(config.getString("compiler.compilation-type"))
+      else None
 
     val issuesURL = config.getString("blue.client.issues-url") match {
       case "" => None
@@ -48,15 +42,14 @@ class ConfigLet(context: BundleContext, config: Config) extends HSimpleLet {
       case "" => None
       case s  => Some(s)
     }
-    
-    talk.writeJson(
+
+    complete(
       AppConfig(
         config.getString("blue.api.path-prefix"),
         recaptcha,
         compilationType,
         issuesURL,
-        cloneURL)
-    )
+        compilationType))
    }
 
 }

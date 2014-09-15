@@ -16,33 +16,56 @@
 package gnieh.blue
 package web
 
-import tiscaf._
-import let._
-
 import org.osgi.framework.BundleContext
 
 import java.io.{
   File,
-  PushbackInputStream
+  PushbackInputStream,
+  InputStream
 }
 
-/** Implements the tiscaf built-in HLet that makes it possible to server
- *  static resources from the class loader.
+import common.FileUtils
+
+import spray.routing.Route
+
+import spray.http.MediaTypes
+
+/** Serve static resources from the class loader.
  *  This implementation overrides de `getResource` method to make it work
  *  in an OSGi container by looking for resrouces in the context of the bundle
  *  class loader
  *
  *  @author Lucas Satabin
  */
-class WebLet(context: BundleContext, prefix: String) extends ResourceLet {
+trait WebClient {
+  this: WebApp =>
 
-  protected def dirRoot = "webapp"
+  import FileUtils._
 
-  override protected def uriRoot = prefix
+  def webClient: Route =
+    pathEndOrSingleSlash {
+      // look for index,html
+      response(getResource("webapp/index.html"), "html")
+    } ~
+    unmatchedPath { p =>
+      response(getResource(s"webapp/$p"), new File(p.toString).extension)
+    }
 
-  override protected def indexes = List("index.html")
+  private def response(stream: InputStream, ext: String): Route = stream match {
+    case null =>
+      reject()
+    case stream =>
+      try {
+        val mime = MediaTypes.forExtension(ext).getOrElse(MediaTypes.`application/octet-stream`)
+        respondWithMediaType(mime) {
+          complete(stream)
+        }
+      } finally {
+        stream.close()
+      }
+  }
 
-  override protected def getResource(path: String): java.io.InputStream = {
+  private def getResource(path: String): InputStream = {
     val url = context.getBundle.getResource(path)
     if (url == null)
       null

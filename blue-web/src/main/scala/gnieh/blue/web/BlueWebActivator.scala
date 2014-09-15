@@ -16,17 +16,22 @@
 package gnieh.blue
 package web
 
+import http.BlueApi
+
 import org.osgi.framework._
 import org.osgi.service.log.LogService
 
-import tiscaf._
-
 import com.typesafe.config.Config
+
+import gnieh.sohva.async.CouchClient
 
 import common.{
   ConfigurationLoader,
-  OsgiUtils
+  OsgiUtils,
+  Logger
 }
+
+import spray.routing.session.StatefulSessionManager
 
 /** The `BlueWebActivator` registers the HLet that serves the blue web client
  *
@@ -39,11 +44,13 @@ class BlueWebActivator extends BundleActivator {
   def start(context: BundleContext): Unit =
     for {
       loader <- context.get[ConfigurationLoader]
-      logger <- context.get[LogService]
+      logger <- context.get[Logger]
+      couch <- context.get[CouchClient]
+      sessionManager <- context.get[StatefulSessionManager[Any]]
     } try {
       val config = loader.load(context.getBundle)
       // register the web application
-      context.registerService(classOf[HApp], new WebApp(context, config), null)
+      context.registerService(classOf[BlueApi], new WebApp(couch, sessionManager, config, context, logger), null)
     } catch {
       case e: Exception =>
         logger.log(LogService.LOG_ERROR, s"Unable to start the web client bundle", e)

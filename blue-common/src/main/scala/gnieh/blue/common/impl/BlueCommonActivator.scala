@@ -111,6 +111,7 @@ class BlueCommonActivator extends ActorSystemActivator {
 
       // create and start the http server
       server = Some(new BlueServer(context, config, logger)(system))
+      server.foreach(_.start())
 
       // register the template engine
       // set the context classloader to the bundle classloader, because

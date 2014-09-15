@@ -37,11 +37,13 @@ import spray.routing.{
   ExceptionHandler,
   Rejection,
   RejectionHandler,
-  InvalidSessionRejection,
   RequestEntityExpectedRejection
 }
-import spray.routing.session.StatefulSessionManager
-import spray.routing.directives.StatefulSessionManagerDirectives
+import spray.routing.session.{
+  StatefulSessionManager,
+  InvalidSessionRejection
+}
+import spray.routing.session.directives.StatefulSessionManagerDirectives
 
 import spray.http.{
   HttpHeaders,
@@ -102,8 +104,11 @@ abstract class BlueApi(
     new PaperConfiguration(config)
 
   /** The configured API prefix if any */
-  val prefix =
-    pathPrefix(config.getString("blue.api.path.prefix"))
+  private val prefix =
+    pathPrefix(separateOnSlashes(config.getString("blue.api.path-prefix")))
+
+  /** Override this to avoid api prefix to be automatically added to the route */
+  val withApiPrefix = true
 
   val exceptionHandler = ExceptionHandler {
     case BlueHttpException(status, key, message) =>
@@ -123,7 +128,17 @@ abstract class BlueApi(
   }
 
   val route =
-    prefix {
+    if(withApiPrefix)
+      prefix {
+        withCookieSession() { (_, _) =>
+          handleExceptions(exceptionHandler) {
+            handleRejections(rejectionHandler) {
+              routes
+            }
+          }
+        }
+      }
+    else
       withCookieSession() { (_, _) =>
         handleExceptions(exceptionHandler) {
           handleRejections(rejectionHandler) {
@@ -131,7 +146,6 @@ abstract class BlueApi(
           }
         }
       }
-    }
 
   def withCouch: Directive1[CookieSession] = cookieSession() hmap {
     case id :: map :: HNil =>

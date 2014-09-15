@@ -16,39 +16,45 @@
 package gnieh.blue
 package web
 
-import tiscaf._
+import http.BlueApi
+
+import common.Logger
 
 import org.osgi.framework.BundleContext
 
 import com.typesafe.config.Config
 
+import gnieh.sohva.async.CouchClient
+
+import spray.routing.session.StatefulSessionManager
+
+import spray.routing.Route
+
 /** This web application serves static web client
  *
  *  @author Lucas Satabin
  */
-class WebApp(context: BundleContext, config: Config) extends HApp {
+class WebApp(
+  couch: CouchClient,
+  sessionManager: StatefulSessionManager[Any],
+  conf: Config,
+  val context: BundleContext,
+  val logger: Logger)
+    extends BlueApi(couch, sessionManager, conf)
+    with Configuration
+    with WebClient {
 
-  // this is required by the resource let used to serve static content
-  override val buffered = true
+  override val withApiPrefix = false
 
-  private val Prefix = "/*(.*)/*".r
+  private val prefix =
+    pathPrefix(separateOnSlashes(config.getString("blue.client.path-prefix")))
 
-  private val prefix = config.getString("blue.client.path-prefix") match {
-    case Prefix(prefix) => prefix
-    case _              => ""
-  }
-
-  private val configLet = new ConfigLet(context, config)
-  private val webLet = new WebLet(context, prefix)
-
-  private val configPath =
-    s"${if(prefix.nonEmpty) prefix + "/" else ""}configuration"
-
-  def resolve(req: HReqData) =
-    if(req.uriPath == configPath)
-      Some(configLet)
-    else
-      Some(webLet)
+  def routes: Route =
+    prefix {
+      pathSuffix("configuration") {
+        configuration
+      }
+    } ~
+    webClient
 
 }
-

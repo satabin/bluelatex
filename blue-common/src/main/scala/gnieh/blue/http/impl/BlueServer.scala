@@ -18,7 +18,6 @@ package http
 package impl
 
 import org.osgi.framework.BundleContext
-import org.osgi.util.tracker.ServiceTracker
 
 import com.typesafe.config._
 
@@ -115,10 +114,14 @@ private class ServerActor(config: Config, val logger: Logger) extends HttpServic
   private def running(routes: Map[Long,Route]): Receive =
     runRoute(mkRoute(routes)) orElse {
       case RouteAdded(route, id) =>
+
+        logInfo("Route added")
         // a new Rest API is registered
         context.become(running(routes.updated(id, route)))
 
       case RouteRemoved(id) =>
+
+        logInfo("Route removed")
         // a bundle disappeared, remove associated route
         context.become(running(routes - id))
     }
