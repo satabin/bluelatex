@@ -122,7 +122,7 @@ class ExplicitCompilationActor(
           _ <- compiler.bibtex(paperId, settings)
         } yield {
           // clean the generated png files when compilation succeeded
-          for(file <- paperConfig.buildDir(paperId).filter(_.extension == ".png"))
+          for(file <- paperConfig.buildDir(paperId).filter(_.extension == "png"))
             file.delete
 
           if(res)

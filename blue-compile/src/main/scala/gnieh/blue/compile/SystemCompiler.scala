@@ -59,7 +59,7 @@ abstract class SystemCompiler(system: ActorSystem, config: Config, texmfcnf: Fil
     // technology from the 80's has limitations...
     // http://tex.stackexchange.com/questions/12686/how-do-i-run-bibtex-after-using-the-output-directory-flag-with-pdflatex-when-f
     import FileUtils._
-    for(file <- configuration.paperDir(paperId).filter(_.extension == ".bib")) {
+    for(file <- configuration.paperDir(paperId).filter(_.extension == "bib")) {
       val destfile = configuration.buildDir(paperId) / file.getName
       (file #> destfile).!
     }

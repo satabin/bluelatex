@@ -30,9 +30,9 @@ import resource._
  */
 object FileUtils {
 
-  val synchronizedExt = """\.bib|\.tex"""
+  val synchronizedExt = """bib|tex"""
 
-  val generatedExt = """\.aux|\.toc|\.bbl|\.log|\.out|\.blg"""
+  val generatedExt = """aux|toc|bbl|log|out|blg"""
 
   /** Extends `java.io.File` with more scalaish features.
    *
@@ -76,7 +76,7 @@ object FileUtils {
       } else {
         val name = file.getCanonicalPath
         if(name.contains("."))
-          name.substring(name.lastIndexOf('.'))
+          name.substring(name.lastIndexOf('.') + 1)
         else
           ""
       }

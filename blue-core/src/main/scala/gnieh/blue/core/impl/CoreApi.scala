@@ -78,112 +78,147 @@ class CoreApi(
     with DeleteResource {
 
   val routes =
-    post {
-      pathSuffix("users") {
-        // registers a new user
-        registerUser
-      } ~
-      pathSuffix("users" / Segment / "reset") { username =>
-        // performs password reset
-        resetUserPassword(username)
-      } ~
-      pathSuffix("papers") {
-        // creates a new paper
-        createPaper
-      } ~
-      pathSuffix("papers" / Segment / "join" / Segment) { (paperid, peerid) =>
-        // join a paper
-        joinPaper(paperid, peerid)
-      } ~
-      pathSuffix("papers" / Segment / "part" / Segment) { (paperid, peerid) =>
-        // leave a paper
-        partPaper(paperid, peerid)
-      } ~
-      pathSuffix("session") {
+    pathSuffix("session") {
+      post {
         // log a user in
         login
       } ~
-      pathSuffix("papers" / Segment / "files" / "resources" / Segment) { (paperid, resourcename) =>
-        // save a non synchronized resource
-        saveResource(paperid, resourcename)
-      }
-    } ~
-    patch {
-      pathSuffix("users" / Segment / "info") { username =>
-        // save the data for the authenticated user
-        modifyUser(username)
-      } ~
-      pathSuffix("papers" / Segment / "info") { paperid =>
-        // modify paper information such as paper name
-        modifyPaper(paperid)
-      } ~
-      pathSuffix("papers" / Segment / "roles") { paperid =>
-        // add or remove people involved in this paper (authors, reviewers)
-        modifyRoles(paperid)
-      }
-    } ~
-    get {
-      pathSuffix("users") {
-        // gets the list of users matching the given pattern
-        getUsers
-      } ~
-      pathSuffix("users" / Segment / "info") { username =>
-        // gets the data of the given user
-        getUserInfo(username)
-      } ~
-      pathSuffix("users" / Segment / "papers") { username =>
-        // gets the list of papers the given user is involved in
-        getUserPapers(username)
-      } ~
-      pathSuffix("users" / Segment / "reset") { username =>
-        // generates a password reset token
-        generatePasswordReset(username)
-      } ~
-      pathSuffix("session") {
+      get {
         // gets the currently logged in user information
         getSessionData
-      } ~
-      pathSuffix("papers" / Segment / "roles") { paperid =>
-        // gets the list of people involved in this paper with their role
-        getPaperRoles(paperid)
-      } ~
-      pathSuffix("papers" / Segment / "info") { paperid =>
-        // gets the paper data
-        getPaperInfo(paperid)
-      } ~
-      pathSuffix("papers" / Segment / "zip") { paperid =>
-        // downloads a zip archive containing the paper files
-        backupPaper("zip", paperid)
-      } ~
-      pathSuffix("papers" / Segment / "files" / "synchronized") { paperid =>
-        // downloads the list of synchronized resources
-        synchronizedResources(paperid)
-      } ~
-      pathSuffix("papers" / Segment / "files" / "resources") { paperid =>
-        // downloads the list of non synchronized resources
-        nonSynchronizedResources(paperid)
-      } ~
-      pathSuffix("papers" / Segment / "files" / "resources" / Segment) { (paperid, resourcename) =>
-        // gets a non synchronized resource
-        getResource(paperid, resourcename)
-      }
-    } ~
-    delete {
-      pathSuffix("users" / Segment) { username =>
-        // unregisters the authenticated user
-        deleteUser(username)
-      } ~
-      pathSuffix("session") {
+      } ~ delete {
         // log a user out
         logout
+      }
+    } ~
+    path("users") {
+      pathEndOrSingleSlash {
+        get {
+          // gets the list of users matching the given pattern
+          getUsers
+        } ~
+        post {
+          // registers a new user
+          registerUser
+        }
       } ~
-      pathSuffix("papers" / Segment) { paperid =>
-        // deletes a paper
-        deletePaper(paperid)
+      path(Segment) { username =>
+        pathEndOrSingleSlash {
+          delete {
+            // unregisters the authenticated user
+            deleteUser(username)
+          }
+        } ~
+        pathSuffix("info") {
+          get {
+            // gets the data of the given user
+            getUserInfo(username)
+          } ~
+          patch {
+            // save the data for the authenticated user
+            modifyUser(username)
+          }
+        } ~
+        pathSuffix("papers") {
+          get {
+            // gets the list of papers the given user is involved in
+            getUserPapers(username)
+          }
+        } ~
+        pathSuffix("reset") {
+          post {
+            // performs password reset
+            resetUserPassword(username)
+          } ~
+          get {
+            // generates a password reset token
+            generatePasswordReset(username)
+          }
+        }
+      }
+    } ~
+    path("papers") {
+      pathEndOrSingleSlash {
+        post {
+          // creates a new paper
+          createPaper
+        }
       } ~
-      pathSuffix("papers" / Segment / "files" / "resources" / Segment) { (paperid, resourcename) =>
-        // deletes a non synchronized resource
-        deleteResource(paperid, resourcename)
+      path(Segment) { paperid =>
+        pathEndOrSingleSlash {
+          delete {
+            // deletes a paper
+            deletePaper(paperid)
+          }
+        } ~
+        pathSuffix("info") {
+          patch {
+            // modify paper information such as paper name
+            modifyPaper(paperid)
+          } ~
+          get {
+            // gets the paper data
+            getPaperInfo(paperid)
+          }
+        } ~
+        pathSuffix("roles") {
+          patch {
+            // add or remove people involved in this paper (authors, reviewers)
+            modifyRoles(paperid)
+          } ~
+          get {
+            // gets the list of people involved in this paper with their role
+            getPaperRoles(paperid)
+          }
+        } ~
+        path("files") {
+          path("resources") {
+            pathEndOrSingleSlash {
+              get {
+                // downloads the list of non synchronized resources
+                nonSynchronizedResources(paperid)
+              }
+            } ~
+            pathSuffix(Segment) { resourcename =>
+              post {
+                // save a non synchronized resource
+                saveResource(paperid, resourcename)
+              } ~
+              get {
+                // gets a non synchronized resource
+                getResource(paperid, resourcename)
+              } ~
+              delete {
+                // deletes a non synchronized resource
+                deleteResource(paperid, resourcename)
+              }
+            }
+          } ~
+          pathSuffix("synchronized") {
+            get {
+              // downloads the list of synchronized resources
+              synchronizedResources(paperid)
+            }
+          }
+        } ~
+        pathSuffix("zip") {
+          get {
+            // downloads a zip archive containing the paper files
+            backupPaper("zip", paperid)
+          }
+        }
+        pathSuffix("join" / Segment) { peerid =>
+          post {
+            // join a paper
+            joinPaper(paperid, peerid)
+          }
+        } ~
+        pathSuffix("part" / Segment) { peerid =>
+          post {
+            // leave a paper
+            partPaper(paperid, peerid)
+          }
+        }
       }
     }
 

@@ -36,6 +36,7 @@ import spray.routing.{
   Directive0,
   ExceptionHandler,
   Rejection,
+  MethodRejection,
   RejectionHandler,
   RequestEntityExpectedRejection
 }
@@ -110,6 +111,23 @@ abstract class BlueApi(
   /** Override this to avoid api prefix to be automatically added to the route */
   val withApiPrefix = true
 
+  def isMethodRejection(rejection: Rejection): Boolean = rejection match {
+    case MethodRejection(_) => true
+    case _                  => false
+  }
+
+  def isAuthenticationRequired(rejections: List[Rejection]): Boolean =
+    rejections.exists {
+      case InvalidSessionRejection(_) | UserRequiredRejection => true
+      case _ => false
+    }
+
+  def isContentRequired(rejections: List[Rejection]): Boolean =
+    rejections.exists {
+      case RequestEntityExpectedRejection => true
+      case _ => false
+    }
+
   val exceptionHandler = ExceptionHandler {
     case BlueHttpException(status, key, message) =>
       complete(status, ErrorResponse(key, message))
@@ -121,27 +139,29 @@ abstract class BlueApi(
   }
 
   val rejectionHandler = RejectionHandler {
-    case List(InvalidSessionRejection(_) | UserRequiredRejection, _*) =>
+    case rejections if isAuthenticationRequired(rejections) =>
       complete(StatusCodes.Unauthorized, ErrorResponse("not_allowed", "Authenticated user required"))
-    case List(RequestEntityExpectedRejection, _*) =>
+    case rejections if isContentRequired(rejections) =>
       complete(StatusCodes.NotModified, ErrorResponse("nothing_to_do" ,"No content was sent"))
   }
 
   val route =
     if(withApiPrefix)
       prefix {
-        withCookieSession() { (_, _) =>
-          handleExceptions(exceptionHandler) {
-            handleRejections(rejectionHandler) {
-              routes
+        handleExceptions(exceptionHandler) {
+          handleRejections(rejectionHandler) {
+            withCookieSession() { (_, _) =>
+              cancelAllRejections(isMethodRejection) {
+                routes
+              }
             }
           }
         }
       }
     else
-      withCookieSession() { (_, _) =>
-        handleExceptions(exceptionHandler) {
-          handleRejections(rejectionHandler) {
+      handleExceptions(exceptionHandler) {
+        withCookieSession() { (_, _) =>
+          cancelAllRejections(isMethodRejection) {
             routes
           }
         }

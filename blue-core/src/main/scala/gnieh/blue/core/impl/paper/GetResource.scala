@@ -63,7 +63,7 @@ trait GetResource {
 
         import FileUtils._
 
-        val mime = MediaTypes.forExtension(file.extension.tail.toLowerCase).getOrElse(MediaTypes.`application/octet-stream`)
+        val mime = MediaTypes.forExtension(file.extension.toLowerCase).getOrElse(MediaTypes.`application/octet-stream`)
 
         respondWithMediaType(mime) {
           complete(array)

@@ -30,6 +30,10 @@ import spray.routing.Route
 
 import spray.http.MediaTypes
 
+import spray.httpx.marshalling.BasicMarshallers
+
+import scalax.io.Resource
+
 /** Serve static resources from the class loader.
  *  This implementation overrides de `getResource` method to make it work
  *  in an OSGi container by looking for resrouces in the context of the bundle
@@ -48,55 +52,50 @@ trait WebClient {
       response(getResource("webapp/index.html"), "html")
     } ~
     unmatchedPath { p =>
-      response(getResource(s"webapp/$p"), new File(p.toString).extension)
+      response(getResource(s"webapp$p"), new File(p.toString).extension)
     }
 
-  private def response(stream: InputStream, ext: String): Route = stream match {
-    case null =>
+  private def response(stream: Option[Array[Byte]], ext: String): Route = stream match {
+    case None =>
       reject()
-    case stream =>
-      try {
-        val mime = MediaTypes.forExtension(ext).getOrElse(MediaTypes.`application/octet-stream`)
-        respondWithMediaType(mime) {
-          complete(stream)
-        }
-      } finally {
-        stream.close()
+    case Some(stream) =>
+      val mime = MediaTypes.forExtension(ext).getOrElse(MediaTypes.`application/octet-stream`)
+      respondWithMediaType(mime) {
+        import BasicMarshallers._
+        complete(stream)
       }
   }
 
-  private def getResource(path: String): InputStream = {
-    val url = context.getBundle.getResource(path)
-    if (url == null)
-      null
-    else url.getProtocol match {
-      case "jar" | "bundle"  =>
-        val is = new PushbackInputStream(url.openStream)
-        try {
-          is.available
-          val first = is.read()
-          if(first == -1) {
-            // this is an empty stream representing a directory entry or an empty file
-            // we never serve directory entries nor empty files, only files with some content.
-            is.close
-            null
-          } else {
-            // unread the first byte and return the input stream
-            is.unread(first)
-            is
+  private def getResource(path: String): Option[Array[Byte]] =
+    Option(context.getBundle.getResource(path)) flatMap { url =>
+      url.getProtocol match {
+        case "jar" | "bundle"  =>
+          val is = new PushbackInputStream(url.openStream)
+          try {
+            is.available
+            val first = is.read()
+            if(first == -1) {
+              // this is an empty stream representing a directory entry or an empty file
+              // we never serve directory entries nor empty files, only files with some content.
+              is.close
+              None
+            } else {
+              // unread the first byte and return the input stream
+              is.unread(first)
+              Option(Resource.fromInputStream(is).byteArray)
+            }
+          } catch {
+            case _: Exception => None
           }
-        } catch {
-          case _: Exception => null
-        }
-      case "file" =>
-        if(new File(url.toURI).isFile)
-          url.openStream
-        else
-          null
-      case _ =>
-        null
+        case "file" =>
+          if(new File(url.toURI).isFile)
+            Option(Resource.fromInputStream(url.openStream).byteArray)
+          else
+            None
+        case _ =>
+          None
+      }
     }
-  }
 
 }
 
