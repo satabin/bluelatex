@@ -44,20 +44,22 @@ import spray.routing.Route
 trait GetUserInfo {
   this: CoreApi =>
 
-  def getUserInfo(username: String): Route = withEntityManager("blue_users") { userManager =>
-    // only authenticated users may see other people information
-    onSuccess(userManager.getComponent[User](s"org.couchdb.user:$username")) {
-      // we are sure that the user has a revision because it comes from the database
-      case Some(user) =>
-        respondWithHeader(HttpHeaders.ETag(user._rev.get)) {
-          complete(user)
-        }
-      case None =>
-        complete(
-          StatusCodes.NotFound,
-          ErrorResponse(
-            "not_found",
-            s"No user named $username found"))
+  def getUserInfo(username: String): Route = requireUser { _ =>
+    withEntityManager("blue_users") { userManager =>
+      // only authenticated users may see other people information
+      onSuccess(userManager.getComponent[User](s"org.couchdb.user:$username")) {
+        // we are sure that the user has a revision because it comes from the database
+        case Some(user) =>
+          respondWithHeader(HttpHeaders.ETag(user._rev.get)) {
+            complete(user)
+          }
+        case None =>
+          complete(
+            StatusCodes.NotFound,
+            ErrorResponse(
+              "not_found",
+              s"No user named $username found"))
+      }
     }
   }
 

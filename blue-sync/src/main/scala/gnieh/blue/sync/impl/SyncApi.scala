@@ -43,13 +43,15 @@ class SyncApi(
 
   val routes =
     post {
-      pathSuffix("papers" / Segment / "q") { paperid =>
-        synchronizeCompat(paperid)
-      } ~
-      pathSuffix("papers" / Segment / "sync") { paperid =>
-        synchronize(paperid)
+      pathPrefix("papers" / Segment) { paperid =>
+        path("q") {
+          synchronizeCompat(paperid)
+        } ~
+        path("sync") {
+          synchronize(paperid)
+        }
       }
-  }
+    }
 
 }
 

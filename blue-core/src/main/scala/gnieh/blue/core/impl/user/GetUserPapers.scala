@@ -44,7 +44,7 @@ import spray.routing.Route
 trait GetUserPapers {
   this: CoreApi =>
 
-  def getUserPapers(username: String): Route =
+  def getUserPapers(username: String): Route = requireUser { _ =>
     (withView("blue_papers", "papers", "for") & withCouch) { (view, session) =>
       // only authenticated users may see other people information
       onSuccess(view.query[String, UserRole, Any](key = Some(username))) { res =>
@@ -61,5 +61,6 @@ trait GetUserPapers {
         }
       }
     }
+  }
 
 }

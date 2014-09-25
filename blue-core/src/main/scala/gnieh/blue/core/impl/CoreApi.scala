@@ -78,7 +78,7 @@ class CoreApi(
     with DeleteResource {
 
   val routes =
-    pathSuffix("session") {
+    path("session") {
       post {
         // log a user in
         login
@@ -91,25 +91,25 @@ class CoreApi(
         logout
       }
     } ~
-    path("users") {
+    pathPrefix("users") {
       pathEndOrSingleSlash {
-        get {
-          // gets the list of users matching the given pattern
-          getUsers
-        } ~
         post {
           // registers a new user
           registerUser
+        } ~
+        get {
+          // gets the list of users matching the given pattern
+          getUsers
         }
       } ~
-      path(Segment) { username =>
+      pathPrefix(Segment) { username =>
         pathEndOrSingleSlash {
           delete {
             // unregisters the authenticated user
             deleteUser(username)
           }
         } ~
-        pathSuffix("info") {
+        path("info") {
           get {
             // gets the data of the given user
             getUserInfo(username)
@@ -119,13 +119,13 @@ class CoreApi(
             modifyUser(username)
           }
         } ~
-        pathSuffix("papers") {
+        path("papers") {
           get {
             // gets the list of papers the given user is involved in
             getUserPapers(username)
           }
         } ~
-        pathSuffix("reset") {
+        path("reset") {
           post {
             // performs password reset
             resetUserPassword(username)
@@ -137,21 +137,21 @@ class CoreApi(
         }
       }
     } ~
-    path("papers") {
+    pathPrefix("papers") {
       pathEndOrSingleSlash {
         post {
           // creates a new paper
           createPaper
         }
       } ~
-      path(Segment) { paperid =>
+      pathPrefix(Segment) { paperid =>
         pathEndOrSingleSlash {
           delete {
             // deletes a paper
             deletePaper(paperid)
           }
         } ~
-        pathSuffix("info") {
+        path("info") {
           patch {
             // modify paper information such as paper name
             modifyPaper(paperid)
@@ -161,7 +161,7 @@ class CoreApi(
             getPaperInfo(paperid)
           }
         } ~
-        pathSuffix("roles") {
+        path("roles") {
           patch {
             // add or remove people involved in this paper (authors, reviewers)
             modifyRoles(paperid)
@@ -171,15 +171,15 @@ class CoreApi(
             getPaperRoles(paperid)
           }
         } ~
-        path("files") {
-          path("resources") {
+        pathPrefix("files") {
+          pathPrefix("resources") {
             pathEndOrSingleSlash {
               get {
                 // downloads the list of non synchronized resources
                 nonSynchronizedResources(paperid)
               }
             } ~
-            pathSuffix(Segment) { resourcename =>
+            path(Segment) { resourcename =>
               post {
                 // save a non synchronized resource
                 saveResource(paperid, resourcename)
@@ -194,26 +194,26 @@ class CoreApi(
               }
             }
           } ~
-          pathSuffix("synchronized") {
+          path("synchronized") {
             get {
               // downloads the list of synchronized resources
               synchronizedResources(paperid)
             }
           }
         } ~
-        pathSuffix("zip") {
+        path("zip") {
           get {
             // downloads a zip archive containing the paper files
             backupPaper("zip", paperid)
           }
         }
-        pathSuffix("join" / Segment) { peerid =>
+        path("join" / Segment) { peerid =>
           post {
             // join a paper
             joinPaper(paperid, peerid)
           }
         } ~
-        pathSuffix("part" / Segment) { peerid =>
+        path("part" / Segment) { peerid =>
           post {
             // leave a paper
             partPaper(paperid, peerid)

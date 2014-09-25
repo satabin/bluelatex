@@ -21,6 +21,12 @@ import common._
 
 import gnieh.sohva.async._
 
+import scala.concurrent.{
+  Await,
+  Future
+}
+import scala.concurrent.duration.Duration
+
 /** the database manager is in charge of database creation and designs management.
  *
  *  @author Lucas Satabin
@@ -33,17 +39,19 @@ class DbManager(client: CouchClient, configuration: CouchConfiguration, val logg
    */
   def start() {
     configuration.asAdmin(client) { session =>
-      configuration.databases.foreach { db =>
-        try {
-          // first create inexistent databases
-          val database = session.database(db, credit = 1)
-          database.create
-          // then create the design manager and update design documents
-          val dm = new DesignManager(configuration, database, logger)
-          dm.reload
-        } catch {
-          case e: Exception => // ignore exception
-            logError("Cannot save design documents", e)
+      Future.successful {
+        configuration.databases.foreach { db =>
+          try {
+            // first create inexistent databases
+            val database = session.database(db, credit = 1)
+            Await.result(database.create, Duration.Inf)
+            // then create the design manager and update design documents
+            val dm = new DesignManager(configuration, database, logger)
+            dm.reload
+          } catch {
+            case e: Exception => // ignore exception
+              logError("Cannot save design documents", e)
+          }
         }
       }
     }

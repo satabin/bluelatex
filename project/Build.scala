@@ -66,9 +66,9 @@ class BlueBuild extends Build with Pack with Server with Distrib with Tests {
     ) dependsOn(blueCommon)
 
   lazy val commonDeps = Seq(
-    "io.spray" % "spray-routing" % "1.3.1",
-    "io.spray" % "spray-caching" % "1.3.1",
-    "io.spray" % "spray-can" % "1.3.1",
+    "io.spray" %% "spray-routing" % "1.3.1",
+    "io.spray" %% "spray-caching" % "1.3.1",
+    "io.spray" %% "spray-can" % "1.3.1",
     "io.spray" %% "spray-json" % "1.2.6",
     "net.tanesha.recaptcha4j" % "recaptcha4j" % "0.0.7",
     "org.apache.pdfbox" % "pdfbox" % "1.8.4" exclude("commons-logging", "commons-logging"),

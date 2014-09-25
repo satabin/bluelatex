@@ -48,6 +48,7 @@ import spray.routing.session.directives.StatefulSessionManagerDirectives
 
 import spray.http.{
   HttpHeaders,
+  HttpRequest,
   StatusCodes,
   StatusCode
 }
@@ -151,9 +152,7 @@ abstract class BlueApi(
         handleExceptions(exceptionHandler) {
           handleRejections(rejectionHandler) {
             withCookieSession() { (_, _) =>
-              cancelAllRejections(isMethodRejection) {
-                routes
-              }
+              routes
             }
           }
         }
@@ -161,9 +160,7 @@ abstract class BlueApi(
     else
       handleExceptions(exceptionHandler) {
         withCookieSession() { (_, _) =>
-          cancelAllRejections(isMethodRejection) {
-            routes
-          }
+          routes
         }
       }
 

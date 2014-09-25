@@ -32,7 +32,6 @@ import scala.util.Try
 
 import gnieh.sohva.control.CouchClient
 
-
 import spray.routing.Route
 
 /** Return a (potentially filtered) list of user names.

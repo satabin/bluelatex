@@ -55,52 +55,66 @@ class CompilationApi(
     with Cleanup {
 
   val routes =
-    post {
-      // join the paper compiler stream
-      pathSuffix("papers" / Segment / "compiler") { paperid =>
-        compile(paperid)
+    pathPrefix("papers" / Segment) { paperid =>
+      pathPrefix("compiler") {
+        pathEndOrSingleSlash {
+          post {
+            // join the paper compiler stream
+            compile(paperid)
+          } ~
+          patch {
+            // saves the compilation settings
+            modifyCompiler(paperid)
+          } ~
+          get {
+            // return the compilation settings
+            getCompilerSettings(paperid)
+          }
+        } ~
+        path("pdf") {
+          get {
+            // return the compiled pdf file for the paper, if any
+            getPdf(paperid)
+          }
+        } ~
+        path("log") {
+          get {
+            // return the last compilation log of any
+            getLog(paperid)
+          }
+        } ~
+        path("png") {
+          get {
+            // return the page given as parameter converted as a png image
+            getPng(paperid)
+          }
+        }
+      } ~
+      pathPrefix("compiled") {
+        pathEndOrSingleSlash {
+          delete {
+            // cleanup the working directory
+            cleanup(paperid)
+          }
+        } ~
+        path("pages") {
+          get {
+            // returns the number of pages in the compiled paper
+            getPages(paperid)
+          }
+        }
+      } ~
+      path("synctex") {
+        get {
+          // return the SyncTeX file
+          getSyncTeX(paperid)
+        }
       }
     } ~
-    patch {
-      // saves the compilation settings
-      pathSuffix("papers" / Segment / "compiler") { paperid =>
-        modifyCompiler(paperid)
-      }
-    } ~
-    get {
-      // return the list of available compilers
-      pathSuffix("compilers") {
+    path("compilers") {
+      get {
+        // return the list of available compilers
         getCompilers
-      } ~
-      // return the compiled pdf file for the paper, if any
-      pathSuffix("papers" / Segment / "compiled" / "pdf") { paperid =>
-        getPdf(paperid)
-      } ~
-      // return the last compilation log of any
-      pathSuffix("papers" / Segment / "compiled" / "log") { paperid =>
-        getLog(paperid)
-      } ~
-      // return the page given as parameter converted as a png image
-      pathSuffix("papers" / Segment / "compiled" / "png") { paperid =>
-        getPng(paperid)
-      } ~
-      // returns the number of pages in the compiled paper
-      pathSuffix("papers" / Segment / "compiled" / "pages") { paperid =>
-        getPages(paperid)
-      } ~
-      // return the compilation settings
-      pathSuffix("papers" / Segment / "compiler") { paperid =>
-        getCompilerSettings(paperid)
-      } ~
-      // return the SyncTeX file
-      pathSuffix("papers" / Segment / "synctex") { paperid =>
-        getSyncTeX(paperid)
-      }
-    } ~
-    delete {
-      // cleanup the working directory
-      pathSuffix("papers" / Segment / "compiled") { paperid =>
-        cleanup(paperid)
       }
     }
 

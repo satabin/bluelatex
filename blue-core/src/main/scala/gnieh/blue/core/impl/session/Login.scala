@@ -36,6 +36,8 @@ import spray.routing.Route
 
 import spray.http.StatusCodes
 
+import spray.httpx.unmarshalling.FormDataUnmarshallers
+
 /** Log the user in.
  *  It delegates to the CouchDB login system and keeps track of the CouchDB cookie
  *
@@ -44,7 +46,9 @@ import spray.http.StatusCodes
 trait Login {
   this: CoreApi =>
 
-  val login: Route = parameter('username.?, 'password.?) {
+  import FormDataUnmarshallers._
+
+  val login: Route = formFields('username.?, 'password.?) {
     case (Some(username), Some(password)) =>
       withCouch { session =>
         onSuccess(session.login(username, password)) {

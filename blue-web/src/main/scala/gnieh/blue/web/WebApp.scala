@@ -46,12 +46,17 @@ class WebApp(
 
   override val withApiPrefix = false
 
-  private val prefix =
-    pathPrefix(separateOnSlashes(config.getString("blue.client.path-prefix")))
+  private val prefix = {
+    val confPrefix = config.getString("blue.client.path-prefix")
+    if(confPrefix.isEmpty)
+      pass
+    else
+      pathPrefix(separateOnSlashes(confPrefix))
+  }
 
   def routes: Route =
     prefix {
-      pathSuffix("configuration") {
+      path("configuration") {
         configuration
       }
     } ~

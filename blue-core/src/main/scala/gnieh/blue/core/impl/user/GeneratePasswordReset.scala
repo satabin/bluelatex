@@ -60,23 +60,25 @@ trait GeneratePasswordReset {
 
   def doIt(username: String): Route = withCouch { session =>
     // generate reset token to send the link in an email
-    couchConfig.asAdmin(session.couch) { sess =>
-      val cal = Calendar.getInstance
-      cal.add(Calendar.SECOND, couchConfig.tokenValidity)
-      onSuccess(for(token <- sess.users.generateResetToken(username, cal.getTime))
-        yield {
-          // send the link to reset the password in an email
-          val emailText =
-            templates.layout(
-              "emails/reset",
-              "baseUrl" -> config.getString("blue.base-url"),
-              "name" -> username,
-              "token" -> token,
-              "validity" -> (couchConfig.tokenValidity / 24 / 3600))
-          mailAgent.send(username, "Password Reset Requested", emailText)
-        }) { _ =>
-          complete(JBool(true))
-        }
+    onSuccess {
+      couchConfig.asAdmin(session.couch) { sess =>
+        val cal = Calendar.getInstance
+        cal.add(Calendar.SECOND, couchConfig.tokenValidity)
+        for(token <- sess.users.generateResetToken(username, cal.getTime))
+          yield {
+            // send the link to reset the password in an email
+            val emailText =
+              templates.layout(
+                "emails/reset",
+                "baseUrl" -> config.getString("blue.base-url"),
+                "name" -> username,
+                "token" -> token,
+                "validity" -> (couchConfig.tokenValidity / 24 / 3600))
+            mailAgent.send(username, "Password Reset Requested", emailText)
+          }
+      }
+    } { _ =>
+      complete(JBool(true))
     }
   }
 

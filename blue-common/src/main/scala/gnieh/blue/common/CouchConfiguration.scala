@@ -26,8 +26,16 @@ import scala.collection.JavaConverters._
 
 import java.util.concurrent.TimeUnit
 
+import scala.concurrent.{
+  Await,
+  Future
+}
+import scala.concurrent.duration.Duration
+
 /** The couchdb configuration part */
 class CouchConfiguration(val config: Config) {
+
+  import scala.concurrent.ExecutionContext.Implicits.global
 
   val couchAdminName = config.getString("couch.admin-name")
 
@@ -37,18 +45,18 @@ class CouchConfiguration(val config: Config) {
 
   def adminSession(client: CouchClient) = {
     val sess = client.startCookieSession
-    sess.login(couchAdminName, couchAdminPassword)
-    sess
+    for(_ <- sess.login(couchAdminName, couchAdminPassword))
+      yield sess
   }
 
-  def asAdmin[T](client: CouchClient)(code: CookieSession => T) = {
-    val sess = adminSession(client)
-    try {
-      code(sess)
-    } finally {
+  def asAdmin[T](client: CouchClient)(code: CookieSession => Future[T]) =
+    for {
+      sess <- adminSession(client)
+      res <- code(sess)
+    } yield {
       sess.logout
+      res
     }
-  }
 
   def designDir(dbName: String) =
     new File(couchDesigns, dbName)

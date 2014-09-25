@@ -13,7 +13,7 @@
       <div class="col c2-3 form-group"
         ng-class="{'has-error': registerForm.username.$invalid}">
         <input class="form-control" id="register_username" name="username" type="text" autofocus
-          data-i18n-attr="_Username_|placeholder" required ng-model="user.username" ng-pattern="/^[^:]*$/"/>
+          data-i18n-attr="_Username_|placeholder" required ng-model="user.name" ng-pattern="/^[^:]*$/"/>
       </div>
     </div>
 
@@ -54,7 +54,7 @@
       <div class="col c2-3 form-group"
         ng-class="{'has-error': registerForm.email.$invalid}">
         <input class="form-control" id="register_email" name="email" type="email"
-          data-i18n-attr="_Email_|placeholder" required ng-model="user.email_address" />
+          data-i18n-attr="_Email_|placeholder" required ng-model="user.email" />
       </div>
     </div>
 

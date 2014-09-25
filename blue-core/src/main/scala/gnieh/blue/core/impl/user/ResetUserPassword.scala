@@ -27,6 +27,8 @@ import spray.http.StatusCodes
 
 import net.liftweb.json.JBool
 
+import spray.httpx.unmarshalling.FormDataUnmarshallers
+
 /** Performs the password reset action for a given user.
  *
  *  @author Lucas Satabin
@@ -34,7 +36,9 @@ import net.liftweb.json.JBool
 trait ResetUserPassword {
   this: CoreApi =>
 
-  def resetUserPassword(username: String): Route = parameters('reset_token.?, 'new_password1.?, 'new_password2.?) {
+  import FormDataUnmarshallers._
+
+  def resetUserPassword(username: String): Route = formFields('reset_token.?, 'new_password1.?, 'new_password2.?) {
     case (Some(token), Some(password1), Some(password2)) if password1 == password2 =>
       withCouch { userSession =>
         // all parameters given, and passwords match, proceed

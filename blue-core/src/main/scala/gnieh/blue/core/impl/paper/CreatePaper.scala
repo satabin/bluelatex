@@ -50,6 +50,8 @@ import spray.routing.Route
 
 import spray.http.StatusCodes
 
+import spray.httpx.unmarshalling.FormDataUnmarshallers
+
 /** Create a new paper. The currently authenticated user is added as author of this paper
  *
  *  @author Lucas Satabin
@@ -57,8 +59,10 @@ import spray.http.StatusCodes
 trait CreatePaper {
   this: CoreApi =>
 
+  import FormDataUnmarshallers._
+
   val createPaper: Route =
-    parameters("paper_name".?, "paper_title".?, "template" ? "article", "type" ? "latex") { (name, title, template, tpe) =>
+    formFields("paper_name".?, "paper_title".?, "template" ? "article", "type" ? "latex") { (name, title, template, tpe) =>
       (withEntityManager("blue_papers") & withEntityManager("blue_users") ){ (paperManager, userManager) =>
         requireUser { user =>
             (name, title) match {

@@ -63,8 +63,7 @@ trait RegisterUser {
 
   val registerUser: Route =
     authorize(recaptcha) {
-      parameters('username.?, 'first_name.?, 'last_name.?, 'email_address.?, 'affiliation.?) {
-        case (Some(username), Some(firstName), Some(lastName), Some(email), affiliation) =>
+      entity(as[User]) { user =>
           withCouch { userSession =>
             onSuccess {
               couchConfig.asAdmin(userSession.couch) { session =>
@@ -72,67 +71,60 @@ trait RegisterUser {
                 (for {
                   password <- session._uuid
                   // first save the standard couchdb user
-                  res <- session.users.add(username, password, couchConfig.defaultRoles)
+                  res <- session.users.add(user.name, password, couchConfig.defaultRoles)
                 } yield res) recover {
                   case ConflictException(_) =>
-                    logWarn(s"User $username already exists")
-                    throw new BlueHttpException(
+                    logWarn(s"User ${user.name} already exists")
+                    complete(
                       StatusCodes.Conflict,
-                      "unable_to_register",
-                      s"The user $username already exists")
+                      ErrorResponse(
+                        "unable_to_register",
+                        s"The user ${user.name} already exists"))
                 }
               }
             } {
               case true =>
-                couchConfig.asAdmin(userSession.couch) { session =>
-                  val userManager = new EntityManager(session.database(couchConfig.database("blue_users")))
-                  // now the user is registered as standard couchdb user, we can add the \BlueLaTeX specific data
-                  val userid = s"org.couchdb.user:$username"
-                  val user = User(username, firstName, lastName, email, affiliation)
                   onSuccess {
-                    (for {
-                      () <- userManager.create(userid, Some("blue-user"))
-                      user <- userManager.saveComponent(userid, user)
-                      _ <- sendEmail(user, session)
-                    } yield {
-                      import OsgiUtils._
-                      // notifiy creation hooks
-                      for(hook <- context.getAll[UserRegistered])
-                        Try(hook.afterRegister(user.name, userManager))
+                    couchConfig.asAdmin(userSession.couch) { session =>
+                      val userManager = new EntityManager(session.database(couchConfig.database("blue_users")))
+                      // now the user is registered as standard couchdb user, we can add the \BlueLaTeX specific data
+                      val userid = s"org.couchdb.user:${user.name}"
+                        (for {
+                          () <- userManager.create(userid, Some("blue-user"))
+                          user <- userManager.saveComponent(userid, user)
+                          _ <- sendEmail(user, session)
+                        } yield {
+                          import OsgiUtils._
+                          // notifiy creation hooks
+                          for(hook <- context.getAll[UserRegistered])
+                            Try(hook.afterRegister(user.name, userManager))
 
-                    }) recover {
-                      case e =>
-                        //logWarn(s"Unable to create \\BlueLaTeX user $username")
-                        logError(s"Unable to create \\BlueLaTeX user $username", e)
-                        // somehow we couldn't save it
-                        // remove the couchdb user from database
-                        Try(session.users.delete(username))
-                        // send error
-                        throw new BlueHttpException(
-                          StatusCodes.InternalServerError,
-                          "unable_to_register",
-                          s"Something went wrong when registering the user $username. Please retry")
+                        }) recover {
+                          case e =>
+                            //logWarn(s"Unable to create \\BlueLaTeX user $username")
+                            logError(s"Unable to create \\BlueLaTeX user ${user.name}", e)
+                            // somehow we couldn't save it
+                            // remove the couchdb user from database
+                            Try(session.users.delete(user.name))
+                            // send error
+                            throw new BlueHttpException(
+                              StatusCodes.InternalServerError,
+                              "unable_to_register",
+                              s"Something went wrong when registering the user ${user.name}. Please retry")
+                        }
                     }
                   } { _ =>
                     complete(StatusCodes.Created, JBool(true))
                   }
-                }
               case false =>
-                logWarn(s"Unable to create CouchDB user $username")
+                logWarn(s"Unable to create CouchDB user ${user.name}")
                 complete(
                   StatusCodes.InternalServerError,
                   "unable_to_register",
-                  s"Something went wrong when registering the user $username. Please retry")
+                  s"Something went wrong when registering the user ${user.name}. Please retry")
             }
           }
 
-        case (_, _, _, _, _) =>
-
-          complete(
-            StatusCodes.BadRequest,
-            ErrorResponse(
-              "unable_to_register",
-              "Missing required parameters"))
       }
 
     }
@@ -156,6 +148,7 @@ trait RegisterUser {
       } recover {
         case e =>
           logError(s"Unable to generate confirmation token for user ${user.name}", e)
+          throw e
       }
     }
 
