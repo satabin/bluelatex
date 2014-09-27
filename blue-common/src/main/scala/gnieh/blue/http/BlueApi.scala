@@ -201,7 +201,8 @@ abstract class BlueApi(
 
   def withSession: Directive[String :: Map[String, Any] :: HNil] = cookieSession()
 
-  def invalidate: Directive0 = withSession hflatMap { case id :: _ :: HNil =>
+  def invalidate: Directive0 = withSession hflatMap { case id :: map :: HNil =>
+    map.get(SessionKeys.Couch).collect { case sess: CookieSession => sess.logout }
     invalidateSession(id)
   }
 

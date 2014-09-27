@@ -59,7 +59,7 @@ trait Login {
                 map.get(SessionKeys.Username).collect {
                   case s: StringSet => s
                 }.map(peers => map.updated(SessionKeys.Username, username)).getOrElse(map)
-              updateSession(id, map) {
+              updateSession(id, updated) {
                 complete(JBool(true))
               }
             }
