@@ -110,7 +110,7 @@ angular.module("bluelatex.User.Services.User", ["ngResource", 'angular-data.DSCa
           "register": {
             method: "POST",
             headers: {
-              'Content-Type': 'application/json'
+              'Content-Type': 'application/x-www-form-urlencoded'
             }
           }
         });
@@ -195,7 +195,7 @@ angular.module("bluelatex.User.Services.User", ["ngResource", 'angular-data.DSCa
             return promise;
           },
           register: function (user) {
-            return register.register({}, user).$promise;
+            return register.register({}, jsonToPostParameters(user)).$promise;
           },
           delete: function (user) {
             var deferred = $q.defer();
