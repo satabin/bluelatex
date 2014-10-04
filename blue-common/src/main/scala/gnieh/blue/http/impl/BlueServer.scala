@@ -33,6 +33,7 @@ import common._
 import akka.actor.{
   Actor,
   ActorSystem,
+  ActorRef,
   Props
 }
 import akka.io.IO
@@ -41,13 +42,23 @@ import akka.util._
 import spray.can.Http
 import spray.routing.{
   Route,
-  HttpServiceActor
+  HttpServiceActor,
+  ExceptionHandler,
+  Rejection,
+  MethodRejection,
+  RejectionHandler,
+  RequestEntityExpectedRejection
 }
 import spray.routing.session.{
   StatefulSessionManager,
-  InMemorySessionManager
+  InMemorySessionManager,
+  InvalidSessionRejection
 }
+import spray.routing.session.directives.StatefulSessionManagerDirectives
 import spray.http.StatusCodes
+import spray.httpx.LiftJsonSupport
+
+import net.liftweb.json.DefaultFormats
 
 class BlueServer(context: BundleContext, configuration: Config, val logger: Logger)(implicit system: ActorSystem) extends Logging {
 
@@ -63,8 +74,8 @@ class BlueServer(context: BundleContext, configuration: Config, val logger: Logg
     new SyncVar[Boolean]
   started.put(false)
 
-  private val serverActor =
-    system.actorOf(Props(new ServerActor(configuration, logger)))
+  private var serverActor: Option[ActorRef] =
+    None
 
   private var sessionManager: Option[StatefulSessionManager[Any]] =
     None
@@ -73,10 +84,12 @@ class BlueServer(context: BundleContext, configuration: Config, val logger: Logg
     if(!started.get) {
       started.take
       val man = new InMemorySessionManager[Any](configuration)
+      val actor = system.actorOf(Props(new ServerActor(configuration, logger)(man)))
+      serverActor = Some(actor)
       // register the session manager service
       context.registerService(classOf[StatefulSessionManager[Any]], man, null)
       sessionManager = Some(man)
-      IO(Http) ! Http.Bind(serverActor, host, port)
+      IO(Http) ! Http.Bind(actor, host, port)
       started.put(true)
       logInfo("blue server started")
     }
@@ -100,14 +113,22 @@ class BlueServer(context: BundleContext, configuration: Config, val logger: Logg
     context.trackAll[BlueApi] {
       case ServiceAdded(api, id) =>
         // transfer the event to the actor so that it can act accordingly
-        serverActor ! RouteAdded(api.route, id)
+        serverActor.foreach(_ ! RouteAdded(api.route, id))
       case ServiceRemoved(_, id) =>
-        serverActor ! RouteRemoved(id)
+        serverActor.foreach(_ ! RouteRemoved(id))
     }
 
 }
 
-private class ServerActor(config: Config, val logger: Logger) extends HttpServiceActor with Logging {
+private class ServerActor(config: Config, val logger: Logger)(implicit val manager: StatefulSessionManager[Any])
+    extends HttpServiceActor
+    with Logging
+    with LiftJsonSupport
+    with StatefulSessionManagerDirectives[Any] {
+
+  implicit def executor = context.system.dispatcher
+
+  implicit def liftJsonFormats = DefaultFormats
 
   def receive = running(Map())
 
@@ -126,11 +147,54 @@ private class ServerActor(config: Config, val logger: Logger) extends HttpServic
         context.become(running(routes - id))
     }
 
+  def isMethodRejection(rejection: Rejection): Boolean = rejection match {
+    case MethodRejection(_) => true
+    case _                  => false
+  }
+
+  def isAuthenticationRequired(rejections: List[Rejection]): Boolean =
+    rejections.exists {
+      case InvalidSessionRejection(_) | UserRequiredRejection => true
+      case _ => false
+    }
+
+  def isContentRequired(rejections: List[Rejection]): Boolean =
+    rejections.exists {
+      case RequestEntityExpectedRejection => true
+      case _ => false
+    }
+
+  val exceptionHandler = ExceptionHandler {
+    case BlueHttpException(status, key, message) =>
+      complete(status, ErrorResponse(key, message))
+    case t =>
+      requestInstance { req =>
+        logError(s"Something wrong happened that could not be resolved by \\BlueLaTeX while handling ${req.method} request on ${req.uri}", t)
+        complete(StatusCodes.InternalServerError,
+          ErrorResponse(
+            "unknown_error",
+            "Something wrong happened on the server side. If the problem persists please contact an administrator"))
+      }
+  }
+
+  val rejectionHandler = RejectionHandler {
+    case rejections if isAuthenticationRequired(rejections) =>
+      complete(StatusCodes.Unauthorized, ErrorResponse("not_allowed", "Authenticated user required"))
+    case rejections if isContentRequired(rejections) =>
+      complete(StatusCodes.NotModified, ErrorResponse("nothing_to_do" ,"No content was sent"))
+  }
+
   private def mkRoute(routes: Map[Long,Route]): Route =
-    if(routes.isEmpty)
-      reject()
-    else
-      routes.values.reduce(_ ~ _)
+    handleExceptions(exceptionHandler) {
+      handleRejections(rejectionHandler) {
+        if(routes.isEmpty)
+          reject()
+        else
+          cookieSession() { (_, _) =>
+            routes.values.reduce(_ ~ _)
+          }
+      }
+    }
 
 }
 

@@ -46,7 +46,7 @@ class WebApp(
 
   override val withApiPrefix = false
 
-  private val prefix = {
+  private lazy val prefix = {
     val confPrefix = config.getString("blue.client.path-prefix")
     if(confPrefix.isEmpty)
       pass

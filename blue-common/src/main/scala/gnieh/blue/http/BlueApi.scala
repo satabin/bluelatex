@@ -30,20 +30,13 @@ import permission.{
 
 import spray.routing.{
   Route,
+  Rejection,
   Directives,
   Directive,
   Directive1,
-  Directive0,
-  ExceptionHandler,
-  Rejection,
-  MethodRejection,
-  RejectionHandler,
-  RequestEntityExpectedRejection
+  Directive0
 }
-import spray.routing.session.{
-  StatefulSessionManager,
-  InvalidSessionRejection
-}
+import spray.routing.session.StatefulSessionManager
 import spray.routing.session.directives.StatefulSessionManagerDirectives
 
 import spray.http.{
@@ -112,69 +105,26 @@ abstract class BlueApi(
   /** Override this to avoid api prefix to be automatically added to the route */
   val withApiPrefix = true
 
-  def isMethodRejection(rejection: Rejection): Boolean = rejection match {
-    case MethodRejection(_) => true
-    case _                  => false
-  }
-
-  def isAuthenticationRequired(rejections: List[Rejection]): Boolean =
-    rejections.exists {
-      case InvalidSessionRejection(_) | UserRequiredRejection => true
-      case _ => false
-    }
-
-  def isContentRequired(rejections: List[Rejection]): Boolean =
-    rejections.exists {
-      case RequestEntityExpectedRejection => true
-      case _ => false
-    }
-
-  val exceptionHandler = ExceptionHandler {
-    case BlueHttpException(status, key, message) =>
-      complete(status, ErrorResponse(key, message))
-    case t =>
-      complete(StatusCodes.InternalServerError,
-        ErrorResponse(
-          "unknown_error",
-          "Something wrong happened on the server side. If the problem persists please contact an administrator"))
-  }
-
-  val rejectionHandler = RejectionHandler {
-    case rejections if isAuthenticationRequired(rejections) =>
-      complete(StatusCodes.Unauthorized, ErrorResponse("not_allowed", "Authenticated user required"))
-    case rejections if isContentRequired(rejections) =>
-      complete(StatusCodes.NotModified, ErrorResponse("nothing_to_do" ,"No content was sent"))
-  }
-
   val route =
     if(withApiPrefix)
-      prefix {
-        handleExceptions(exceptionHandler) {
-          handleRejections(rejectionHandler) {
-            withCookieSession() { (_, _) =>
-              routes
-            }
-          }
-        }
-      }
+      prefix(routes)
     else
-      handleExceptions(exceptionHandler) {
-        withCookieSession() { (_, _) =>
-          routes
-        }
-      }
+      routes
 
-  def withCouch: Directive1[CookieSession] = cookieSession() hmap {
+  def withCouch: Directive1[CookieSession] = cookieSession() hflatMap {
     case id :: map :: HNil =>
       map.get(SessionKeys.Couch).collect {
-        case sess: CookieSession => sess
+        case sess: CookieSession =>
+          provide(sess)
       } getOrElse {
         // if no couch session is registered, then start a new one
         val sess = couch.startCookieSession
+        val updated = map.updated(SessionKeys.Couch, sess)
         // and save it
-        updateSession(id, map.updated(SessionKeys.Couch, sess))
-        // then return it
-        sess
+        updateSession(id, updated) hmap { _ =>
+          // then return it
+          sess
+        }
       }
   }
 
