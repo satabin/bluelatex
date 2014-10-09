@@ -54,7 +54,7 @@ class CompilationApi(
     with GetSyncTeX
     with Cleanup {
 
-  val routes =
+  lazy val routes =
     pathPrefix("papers" / Segment) { paperid =>
       pathPrefix("compiler") {
         pathEndOrSingleSlash {

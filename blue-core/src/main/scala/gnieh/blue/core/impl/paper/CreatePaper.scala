@@ -61,7 +61,7 @@ trait CreatePaper {
 
   import FormDataUnmarshallers._
 
-  val createPaper: Route =
+  def createPaper: Route =
     formFields("paper_name".?, "paper_title".?, "template" ? "article", "type" ? "latex") { (name, title, template, tpe) =>
       (withEntityManager("blue_papers") & withEntityManager("blue_users") ){ (paperManager, userManager) =>
         requireUser { user =>

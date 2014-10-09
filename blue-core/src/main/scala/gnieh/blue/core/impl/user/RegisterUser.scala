@@ -65,7 +65,7 @@ trait RegisterUser {
 
   import FormDataUnmarshallers._
 
-  val registerUser: Route =
+  def registerUser: Route =
     authorize(recaptcha) {
       formFields('username.?, 'first_name.?, 'last_name.?, 'email_address.?, 'affiliation.?) {
         case (Some(username), Some(firstName), Some(lastName), Some(email), affiliation) =>

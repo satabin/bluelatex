@@ -48,7 +48,7 @@ trait Login {
 
   import FormDataUnmarshallers._
 
-  val login: Route = formFields('username.?, 'password.?) {
+  def login: Route = formFields('username.?, 'password.?) {
     case (Some(username), Some(password)) =>
       withCouch { session =>
         onSuccess(session.login(username, password)) {

@@ -41,7 +41,7 @@ class SyncApi(
     with SynchronizeCompat
     with Synchronize {
 
-  val routes =
+  lazy val routes =
     post {
       pathPrefix("papers" / Segment) { paperid =>
         path("q") {
@@ -54,4 +54,3 @@ class SyncApi(
     }
 
 }
-

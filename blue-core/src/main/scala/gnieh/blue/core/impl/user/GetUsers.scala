@@ -41,7 +41,7 @@ import spray.routing.Route
 trait GetUsers {
   this: CoreApi =>
 
-  val getUsers: Route = withView(blue_users, "lists", "names") { userNames =>
+  def getUsers: Route = withView(blue_users, "lists", "names") { userNames =>
     parameter('name.?) { filter =>
       // get the filter parameter if any
       val startkey = filter.map(_.toLowerCase)

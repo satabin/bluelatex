@@ -41,7 +41,7 @@ import spray.http.StatusCodes
 trait Logout {
   this: CoreApi =>
 
-  val logout: Route =
+  def logout: Route =
     withCouch { session =>
       onSuccess(session.logout) {
         case true  =>
