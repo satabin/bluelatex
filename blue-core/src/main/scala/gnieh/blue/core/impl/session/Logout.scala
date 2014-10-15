@@ -42,7 +42,7 @@ trait Logout {
   this: CoreApi =>
 
   def logout: Route =
-    withCouch { session =>
+    withCouch() { session =>
       onSuccess(session.logout) {
         case true  =>
           invalidate(complete(JBool(true)))

@@ -46,7 +46,7 @@ trait GeneratePasswordReset {
   this: CoreApi =>
 
   // if the user is authenticated, he cannot generate the password reset token for other people
-  def generatePasswordReset(username: String): Route = withUser {
+  def generatePasswordReset(username: String): Route = withUser() {
     case Some(user) if user.name != username =>
       complete(
         StatusCodes.Forbidden,
@@ -58,7 +58,7 @@ trait GeneratePasswordReset {
       doIt(username)
   }
 
-  def doIt(username: String): Route = withCouch { session =>
+  def doIt(username: String): Route = withCouch() { session =>
     // generate reset token to send the link in an email
     onSuccess {
       couchConfig.asAdmin(session.couch) { sess =>

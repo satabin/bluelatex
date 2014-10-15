@@ -77,7 +77,7 @@ class CoreApi(
     with DeletePaper
     with DeleteResource {
 
-  lazy val routes =
+  def routes =
     path("session") {
       post {
         // log a user in

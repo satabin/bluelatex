@@ -69,7 +69,7 @@ trait RegisterUser {
     authorize(recaptcha) {
       formFields('username.?, 'first_name.?, 'last_name.?, 'email_address.?, 'affiliation.?) {
         case (Some(username), Some(firstName), Some(lastName), Some(email), affiliation) =>
-          withCouch { userSession =>
+          withCouch() { userSession =>
             onSuccess {
               couchConfig.asAdmin(userSession.couch) { session =>
                 // generate a random password

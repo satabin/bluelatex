@@ -40,7 +40,7 @@ trait ResetUserPassword {
 
   def resetUserPassword(username: String): Route = formFields('reset_token.?, 'new_password1.?, 'new_password2.?) {
     case (Some(token), Some(password1), Some(password2)) if password1 == password2 =>
-      withCouch { userSession =>
+      withCouch() { userSession =>
         // all parameters given, and passwords match, proceed
         onSuccess {
           couchConfig.asAdmin(userSession.couch) { sess =>

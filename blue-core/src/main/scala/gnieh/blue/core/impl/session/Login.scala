@@ -50,7 +50,7 @@ trait Login {
 
   def login: Route = formFields('username.?, 'password.?) {
     case (Some(username), Some(password)) =>
-      withCouch { session =>
+      withCouch() { session =>
         onSuccess(session.login(username, password)) {
           case true  =>
             // save the current user name in the session

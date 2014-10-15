@@ -25,7 +25,8 @@ import common.{
 import couch.PaperRole
 import permission.{
   Role,
-  Anonymous
+  Anonymous,
+  Other
 }
 
 import spray.routing.{
@@ -67,6 +68,8 @@ import scala.util.{
   Success,
   Failure
 }
+
+import scala.concurrent.Future
 
 /** The rest interface may be extended by \BlueLaTeX modules.
  *  Theses module simply need to register routes to make the new interface available.
@@ -111,41 +114,41 @@ abstract class BlueApi(
     else
       routes
 
-  def withCouch: Directive1[CookieSession] = cookieSession() hflatMap {
+  def withCouch(): Directive1[CookieSession] = cookieSession() hflatMap {
     case id :: map :: HNil =>
-      map.get(SessionKeys.Couch).collect {
+      val sess = map.get(SessionKeys.Couch).collect {
         case sess: CookieSession =>
-          provide(sess)
+          Future.successful(sess)
       } getOrElse {
         // if no couch session is registered, then start a new one
         val sess = couch.startCookieSession
         val updated = map.updated(SessionKeys.Couch, sess)
         // and save it
-        updateSession(id, updated) hmap { _ =>
-          // then return it
+        manager.update(id, updated) map { _ =>
           sess
         }
       }
+      onSuccess(sess)
   }
 
-  def withUser: Directive1[Option[UserInfo]] = withCouch flatMap { session =>
+  def withUser(): Directive1[Option[UserInfo]] = withCouch() flatMap { session =>
     onSuccess(session.currentUser)
   }
 
-  def requireUser: Directive1[UserInfo] = withUser flatMap {
-    case Some(user) => provide(user)
-    case None       => reject(UserRequiredRejection)
+  def requireUser: Directive1[UserInfo] = withUser() map {
+    case Some(user) => user
+    case None       => throw new BlueHttpException(StatusCodes.Unauthorized, "unauthorized", "Authenticated user is required")
   }
 
-  def withDatabase(dbName: String): Directive1[Database] = withCouch map { session =>
+  def withDatabase(dbName: String): Directive1[Database] = withCouch() map { session =>
     session.database(couchConfig.database(dbName))
   }
 
-  def withView(dbName: String, design: String, view: String): Directive1[View] = withCouch map { session =>
+  def withView(dbName: String, design: String, view: String): Directive1[View] = withCouch() map { session =>
     session.database(couchConfig.database(dbName)).design(design).view(view)
   }
 
-  def withEntityManager(dbName: String): Directive1[EntityManager] = withCouch map { session =>
+  def withEntityManager(dbName: String): Directive1[EntityManager] = withCouch() map { session =>
     new EntityManager(session.database(couchConfig.database(dbName)))
   }
 
@@ -156,11 +159,17 @@ abstract class BlueApi(
     invalidateSession(id)
   }
 
-  def withRole(paperId: String): Directive1[Role] = (withUser & withEntityManager("blue_papers")) hflatMap {
-    case Some(user) :: entityManager :: HNil =>
-      onSuccess(for(Some(roles) <- entityManager.getComponent[PaperRole](paperId))
-        yield roles.roleOf(Some(user)))
-    case None :: _ :: HNil =>
+  def withRole(paperId: String): Directive1[Role] = withUser() flatMap {
+    case Some(user) =>
+      withEntityManager("blue_papers") flatMap { entityManager =>
+        onSuccess {
+          entityManager.getComponent[PaperRole](paperId) map {
+            case Some(roles) => roles.roleOf(Some(user))
+            case None        => Other
+          }
+        }
+      }
+    case None =>
       provide(Anonymous)
   }
 
