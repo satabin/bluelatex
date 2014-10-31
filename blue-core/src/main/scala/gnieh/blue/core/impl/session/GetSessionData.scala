@@ -40,7 +40,7 @@ import spray.routing.Route
 trait GetSessionData {
   this: CoreApi =>
 
-  def getSessionData: Route = requireUser { user =>
+  def getSessionData: Route = requireUser() { user =>
     complete(user)
   }
 

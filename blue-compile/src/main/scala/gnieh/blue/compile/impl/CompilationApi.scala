@@ -55,59 +55,61 @@ class CompilationApi(
     with Cleanup {
 
   def routes =
-    pathPrefix("papers" / Segment) { paperid =>
-      pathPrefix("compiler") {
-        pathEndOrSingleSlash {
-          post {
-            // join the paper compiler stream
-            compile(paperid)
+    pathPrefix("papers") {
+      pathPrefix(Segment) { paperid =>
+        pathPrefix("compiler") {
+          pathEndOrSingleSlash {
+            post {
+              // join the paper compiler stream
+              compile(paperid)
+            } ~
+            patch {
+              // saves the compilation settings
+              modifyCompiler(paperid)
+            } ~
+            get {
+              // return the compilation settings
+              getCompilerSettings(paperid)
+            }
           } ~
-          patch {
-            // saves the compilation settings
-            modifyCompiler(paperid)
+          path("pdf") {
+            get {
+              // return the compiled pdf file for the paper, if any
+              getPdf(paperid)
+            }
           } ~
-          get {
-            // return the compilation settings
-            getCompilerSettings(paperid)
+          path("log") {
+            get {
+              // return the last compilation log of any
+              getLog(paperid)
+            }
+          } ~
+          path("png") {
+            get {
+              // return the page given as parameter converted as a png image
+              getPng(paperid)
+            }
           }
         } ~
-        path("pdf") {
-          get {
-            // return the compiled pdf file for the paper, if any
-            getPdf(paperid)
+        pathPrefix("compiled") {
+          pathEndOrSingleSlash {
+            delete {
+              // cleanup the working directory
+              cleanup(paperid)
+            }
+          } ~
+          path("pages") {
+            get {
+              // returns the number of pages in the compiled paper
+              getPages(paperid)
+            }
           }
         } ~
-        path("log") {
+        path("synctex") {
           get {
-            // return the last compilation log of any
-            getLog(paperid)
+            // return the SyncTeX file
+            getSyncTeX(paperid)
           }
-        } ~
-        path("png") {
-          get {
-            // return the page given as parameter converted as a png image
-            getPng(paperid)
-          }
-        }
-      } ~
-      pathPrefix("compiled") {
-        pathEndOrSingleSlash {
-          delete {
-            // cleanup the working directory
-            cleanup(paperid)
-          }
-        } ~
-        path("pages") {
-          get {
-            // returns the number of pages in the compiled paper
-            getPages(paperid)
-          }
-        }
-      } ~
-      path("synctex") {
-        get {
-          // return the SyncTeX file
-          getSyncTeX(paperid)
         }
       }
     } ~

@@ -46,7 +46,7 @@ trait Compile {
     case Author =>
       val promise = Promise[CompilationStatus]()
 
-      requireUser { user =>
+      requireUser() { user =>
         onComplete {
           // register the client with the paper compiler
           dispatcher ! Forward(paperId, Register(user.name, promise))

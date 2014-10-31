@@ -42,13 +42,17 @@ class SyncApi(
     with Synchronize {
 
   def routes =
-    post {
-      pathPrefix("papers" / Segment) { paperid =>
+    pathPrefix("papers") {
+      pathPrefix(Segment) { paperid =>
         path("q") {
-          synchronizeCompat(paperid)
+          post {
+            synchronizeCompat(paperid)
+          }
         } ~
         path("sync") {
-          synchronize(paperid)
+          post {
+            synchronize(paperid)
+          }
         }
       }
     }

@@ -46,7 +46,7 @@ import spray.httpx.unmarshalling.UnmarshallerLifting
 trait ModifyUser {
   this: CoreApi =>
 
-  def modifyUser(username: String): Route = requireUser { user =>
+  def modifyUser(username: String): Route = requireUser() { user =>
     if(username == user.name) {
       // a user can only modify his own data
       optionalHeaderValuePF { case h: HttpHeaders.`If-Match` => h.value } {

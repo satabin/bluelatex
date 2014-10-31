@@ -91,9 +91,9 @@ abstract class BlueApi(
 
   implicit def liftJsonFormats = couch.formats + JsonPatchSerializer
 
-  implicit val manager = sessionManager
+  implicit def manager = sessionManager
 
-  implicit val executor = couch.ec
+  implicit def executor = couch.ec
 
   val couchConfig =
     new CouchConfiguration(config)
@@ -102,13 +102,13 @@ abstract class BlueApi(
     new PaperConfiguration(config)
 
   /** The configured API prefix if any */
-  private val prefix =
+  private def prefix =
     pathPrefix(separateOnSlashes(config.getString("blue.api.path-prefix")))
 
   /** Override this to avoid api prefix to be automatically added to the route */
   val withApiPrefix = true
 
-  val route =
+  def route =
     if(withApiPrefix)
       prefix(routes)
     else
@@ -135,7 +135,7 @@ abstract class BlueApi(
     onSuccess(session.currentUser)
   }
 
-  def requireUser: Directive1[UserInfo] = withUser() map {
+  def requireUser(): Directive1[UserInfo] = withUser() map {
     case Some(user) => user
     case None       => throw new BlueHttpException(StatusCodes.Unauthorized, "unauthorized", "Authenticated user is required")
   }
@@ -152,9 +152,7 @@ abstract class BlueApi(
     new EntityManager(session.database(couchConfig.database(dbName)))
   }
 
-  def withSession: Directive[String :: Map[String, Any] :: HNil] = cookieSession()
-
-  def invalidate: Directive0 = withSession hflatMap { case id :: map :: HNil =>
+  def invalidate: Directive0 = cookieSession() hflatMap { case id :: map :: HNil =>
     map.get(SessionKeys.Couch).collect { case sess: CookieSession => sess.logout }
     invalidateSession(id)
   }

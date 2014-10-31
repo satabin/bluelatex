@@ -31,7 +31,7 @@ trait GetCompilers {
 
   import OsgiUtils._
 
-  def getCompilers: Route = requireUser { _ =>
+  def getCompilers: Route = requireUser() { _ =>
     complete(context.getAll[Compiler].map(_.name).toList.sorted)
   }
 

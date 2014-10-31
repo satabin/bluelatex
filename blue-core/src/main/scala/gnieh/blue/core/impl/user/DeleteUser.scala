@@ -52,7 +52,7 @@ import spray.http.StatusCodes
 trait DeleteUser {
   this: CoreApi =>
 
-  def deleteUser(username: String): Route = requireUser { user =>
+  def deleteUser(username: String): Route = requireUser() { user =>
     authorize(recaptcha) {
       if(user.name == username) {
 

@@ -44,7 +44,7 @@ import spray.routing.Route
 trait GetUserInfo {
   this: CoreApi =>
 
-  def getUserInfo(username: String): Route = requireUser { _ =>
+  def getUserInfo(username: String): Route = requireUser() { _ =>
     withEntityManager("blue_users") { userManager =>
       // only authenticated users may see other people information
       onSuccess(userManager.getComponent[User](s"org.couchdb.user:$username")) {

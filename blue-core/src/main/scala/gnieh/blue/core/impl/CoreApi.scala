@@ -206,7 +206,7 @@ class CoreApi(
             // downloads a zip archive containing the paper files
             backupPaper("zip", paperid)
           }
-        }
+        } ~
         path("join" / Segment) { peerid =>
           post {
             // join a paper
