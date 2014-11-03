@@ -37,8 +37,6 @@ import spray.http.{
   HttpHeaders
 }
 
-import spray.httpx.unmarshalling.UnmarshallerLifting
-
 /** Handle JSON Patches that modify the user data
  *
  *  @author Lucas Satabin
@@ -49,7 +47,7 @@ trait ModifyUser {
   def modifyUser(username: String): Route = requireUser() { user =>
     if(username == user.name) {
       // a user can only modify his own data
-      optionalHeaderValuePF { case h: HttpHeaders.`If-Match` => h.value } {
+      optionalHeaderValuePF { case h: HttpHeaders.`If-Match` => h.value.replaceAll("\"", "") } {
         case knownRev @ Some(_) =>
           entity(as[JsonPatch]) { patch =>
             (withEntityManager("blue_users") & withDatabase("blue_users")) { (userManager, db) =>

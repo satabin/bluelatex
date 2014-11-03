@@ -34,8 +34,6 @@ import spray.http.{
   StatusCodes
 }
 
-import spray.httpx.unmarshalling.UnmarshallerLifting
-
 /** Handle JSON Patches that add/remove/modify people involved in the given paper
  *
  *  @author Lucas Satabin
@@ -46,7 +44,7 @@ trait ModifyRoles {
   def modifyRoles(paperId: String): Route = withRole(paperId) {
     case Author =>
       // only authors may modify this list
-      optionalHeaderValuePF { case h: HttpHeaders.`If-Match` => h.value } {
+      optionalHeaderValuePF { case h: HttpHeaders.`If-Match` => h.value.replaceAll("\"", "") } {
         case knownRev @ Some(_) =>
           entity(as[JsonPatch]) { patch =>
             withEntityManager("blue_papers") { paperManager =>

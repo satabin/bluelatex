@@ -33,10 +33,7 @@ import spray.http.{
   MediaTypes
 }
 
-import spray.httpx.unmarshalling.{
-  BasicUnmarshallers,
-  UnmarshallerLifting
-}
+import spray.httpx.unmarshalling.BasicUnmarshallers
 import spray.httpx.marshalling.BasicMarshallers
 
 import spray.http.StatusCodes

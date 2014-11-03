@@ -95,7 +95,7 @@ angular.module("bluelatex.User.Services.User", ["ngResource", 'angular-data.DSCa
           "modify": {
             'method': 'PATCH',
             headers: {
-              'Content-Type': 'application/json-patch'
+              'Content-Type': 'application/json'
             },
             transformRequest: [
               function (data, headersGetter) {

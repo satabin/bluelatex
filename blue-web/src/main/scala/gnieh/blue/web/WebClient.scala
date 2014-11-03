@@ -52,7 +52,8 @@ trait WebClient {
       response(getResource("webapp/index.html"), "html")
     } ~
     unmatchedPath { p =>
-      response(getResource(s"webapp$p"), new File(p.toString).extension)
+      val file = new File(p.toString)
+      response(getResource(s"webapp${file.toURI.normalize.getPath}"), file.extension)
     }
 
   private def response(stream: Option[Array[Byte]], ext: String): Route = stream match {

@@ -111,7 +111,7 @@ angular.module('bluelatex.Paper.Services.Paper', ["ngResource",'angular-data.DSC
         "modify": {
           method: "PATCH",
           headers: {
-            'Content-Type': 'application/json-patch'
+            'Content-Type': 'application/json'
           },
           transformRequest: [
             function (data, headersGetter) {
@@ -189,7 +189,7 @@ angular.module('bluelatex.Paper.Services.Paper', ["ngResource",'angular-data.DSC
         "edit": {
           method: "PATCH",
           headers: {
-            'Content-Type': 'application/json-patch'
+            'Content-Type': 'application/json'
           },
           transformRequest: [
             function (data, headersGetter) {
@@ -217,7 +217,7 @@ angular.module('bluelatex.Paper.Services.Paper', ["ngResource",'angular-data.DSC
         "edit": {
           method: "PATCH",
           headers: {
-            'Content-Type': 'application/json-patch'
+            'Content-Type': 'application/json'
           },
           transformRequest: [
             function (data, headersGetter) {

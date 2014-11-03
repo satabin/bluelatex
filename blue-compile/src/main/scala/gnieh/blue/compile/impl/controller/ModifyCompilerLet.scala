@@ -32,8 +32,6 @@ import spray.http.{
   HttpHeaders
 }
 
-import spray.httpx.unmarshalling.UnmarshallerLifting
-
 /** Handle JSON Patches that modify the compiler data
  *
  *  @author Lucas Satabin
@@ -41,11 +39,9 @@ import spray.httpx.unmarshalling.UnmarshallerLifting
 trait ModifyCompiler {
   this: CompilationApi =>
 
-  import UnmarshallerLifting._
-
   def modifyCompiler(paperId: String): Route = withRole(paperId) {
     case Author =>
-      optionalHeaderValuePF { case h: HttpHeaders.`If-Match` => h.value } {
+      optionalHeaderValuePF { case h: HttpHeaders.`If-Match` => h.value.replaceAll("\"", "") } {
         case knownRev @ Some(_) =>
           entity(as[JsonPatch]) { patch =>
             withEntityManager("blue_papers") { paperManager =>

@@ -30,10 +30,7 @@ import scala.concurrent.Future
 
 import spray.routing.Route
 
-import spray.httpx.unmarshalling.{
-  BasicUnmarshallers,
-  UnmarshallerLifting
-}
+import spray.httpx.unmarshalling.BasicUnmarshallers
 import spray.httpx.LiftJsonSupport
 
 import spray.http.StatusCodes
@@ -53,7 +50,6 @@ trait SynchronizeCompat extends LiftJsonSupport {
   this: SyncApi =>
 
   import BasicUnmarshallers._
-  import UnmarshallerLifting._
 
   abstract override implicit def liftJsonFormats =
     super.liftJsonFormats +

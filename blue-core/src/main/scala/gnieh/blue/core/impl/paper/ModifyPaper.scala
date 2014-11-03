@@ -34,8 +34,6 @@ import spray.http.{
   HttpHeaders
 }
 
-import spray.httpx.unmarshalling.UnmarshallerLifting
-
 /** Handle JSON Patches that modify paper data such as paper name
  *
  *  @author Lucas Satabin
@@ -43,12 +41,10 @@ import spray.httpx.unmarshalling.UnmarshallerLifting
 trait ModifyPaper {
   this: CoreApi =>
 
-  import UnmarshallerLifting._
-
   def modifyPaper(paperId: String): Route = withRole(paperId) {
     case Author =>
       // only authors may modify this list
-      optionalHeaderValuePF { case h: HttpHeaders.`If-Match` => h.value } {
+      optionalHeaderValuePF { case HttpHeaders.`If-Match`(m) => m.value.replaceAll("\"", "") } {
         case knownRev @ Some(_) =>
           entity(as[JsonPatch]) { patch =>
             withEntityManager("blue_papers") { paperManager =>
