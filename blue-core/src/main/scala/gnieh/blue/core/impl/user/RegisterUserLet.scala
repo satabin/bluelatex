@@ -20,7 +20,10 @@ package impl.user
 import tiscaf._
 
 import http._
-import couch.User
+import couch.{
+  User,
+  Notifications
+}
 import common._
 
 import com.typesafe.config.Config
@@ -138,9 +141,17 @@ class RegisterUserLet(val couch: CouchClient, config: Config, context: BundleCon
           // now the user is registered as standard couchdb user, we can add the \BlueLaTeX specific data
           val userid = s"org.couchdb.user:$username"
           val user = User(username, firstName, lastName, email, affiliation)
+          val notifications =
+            Notifications(
+              s"$userid:notifications",
+              config.getBoolean("blue.notifications.email"),
+              config.getBoolean("blue.notifications.api"),
+              config.getBoolean("blue.notifications.new-papers"),
+              Nil)
           (for {
             () <- manager.create(userid, Some("blue-user"))
             user <- manager.saveComponent(userid, user)
+            _ <- manager.saveComponent(userid, notifications)
             _ <- sendEmail(confirmationKind, user, email, session)
           } yield {
             import OsgiUtils._
