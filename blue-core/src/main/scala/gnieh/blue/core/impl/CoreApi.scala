@@ -76,6 +76,9 @@ class CoreApi(
     // save the data for the authenticated user
     case p"users/$username/info" =>
       new ModifyUserLet(username, couch, config, logger)
+    // modify notification settings
+    case p"users/$username/notifications" =>
+      new ModifyNotificationsLet(username, couch, config, logger)
     // modify paper information such as paper name
     case p"papers/$paperid/info" =>
       new ModifyPaperLet(paperid, couch, config, logger)
