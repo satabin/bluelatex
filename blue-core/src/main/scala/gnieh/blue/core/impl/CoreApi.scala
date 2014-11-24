@@ -123,6 +123,9 @@ class CoreApi(
     // gets a non synchronized resource
     case p"papers/$paperid/files/resources/$resourcename" =>
       new GetResourceLet(paperid, resourcename, couch, config, logger)
+    // gets the notifications for the authenticated user
+    case p"notifications" =>
+      new GetNotificationsLet(couch, config, logger)
   }
 
   DELETE {
@@ -138,6 +141,9 @@ class CoreApi(
     // deletes a non synchronized resource
     case p"papers/$paperid/files/resources/$resourcename" =>
       new DeleteResourceLet(paperid, resourcename, couch, config, logger)
+    // deletes the notifications given in the body of the request for the current user
+    case p"notifications" =>
+      new DeleteNotificationsLet(couch, config, logger)
   }
 
 }

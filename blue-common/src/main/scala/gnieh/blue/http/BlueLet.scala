@@ -127,7 +127,11 @@ object BlueLet {
  *
  *  @author Lucas Satabin
  */
-sealed abstract class BlueLet[Ret[_]](val config: Config, val logger: Logger) extends HLet with CouchSupport with Logging {
+sealed abstract class BlueLet[Ret[_]](val config: Config, val logger: Logger)
+    extends HLet
+    with CouchSupport
+    with NotificationSupport
+    with Logging {
 
   implicit val formats = BlueLet.formats
 

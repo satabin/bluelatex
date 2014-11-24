@@ -1,0 +1,10 @@
+{
+  "_id": "_design/lists",
+  "language": "javascript",
+  "views": {
+    "by_user": {
+      "map": "function(doc) {\n  if(doc.username && doc.message) {\n    emit(doc.username, { \"id\": doc._id, \"message\": doc.message});\n  }\n}",
+      "reduce": "_count"
+    }
+  }
+}
