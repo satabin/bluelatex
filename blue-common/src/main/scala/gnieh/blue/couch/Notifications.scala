@@ -19,6 +19,4 @@ import gnieh.sohva.IdRev
 
 case class Notifications(_id: String,
   email_notifications: Boolean,
-  api_notifications: Boolean,
-  new_papers: Boolean,
-  enabled_for: List[String]) extends IdRev
+  api_notifications: Boolean) extends IdRev

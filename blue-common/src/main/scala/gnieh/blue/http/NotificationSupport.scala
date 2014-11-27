@@ -22,7 +22,10 @@ import common._
 
 import tiscaf._
 
-import scala.util.Try
+import scala.util.{
+  Try,
+  Success
+}
 
 import gnieh.sohva.{
   ViewResult,
@@ -51,6 +54,53 @@ trait NotificationSupport {
     for(res <- view.query[String,String,Nothing](key = Some(username), reduce = false))
       yield res.values.toMap
   }
+
+  /** Sends notification message to the given username, according to its own notification settings. */
+  def sendNotifications(mailer: MailAgent, templates: Templates, to: String, title: String, description: String)(implicit talk: HTalk): Try[Unit] = {
+    // first get notification settings for the user
+    val userid = f"org.couch.user:$to"
+    val manager = entityManager("blue_users")
+    manager.getComponent[Notifications](userid).flatMap {
+      case Some(Notifications(_, email, api)) =>
+        if(email) {
+          sendEmail(mailer, templates, to, title, description)
+        }
+        if(api) {
+          for(_ <- database("blue_notifications").createDoc(
+            Map(
+              "timestamp" -> System.currentTimeMillis,
+              "username" -> to,
+              "message" -> description)))
+            yield ()
+        } else {
+          Success(())
+        }
+      case None =>
+        manager.saveComponent(userid, defaultNotifications(userid)).flatMap { _ =>
+          sendEmail(mailer, templates, to, title, description)
+          for(_ <- database("blue_notifications").createDoc(
+            Map(
+              "timestamp" -> System.currentTimeMillis,
+              "username" -> to,
+              "message" -> description)))
+            yield ()
+        }
+    }
+  }
+
+  private def sendEmail(mailer: MailAgent, templates: Templates, to: String, title: String, message: String): Unit = {
+    val email = templates.layout("emails/notification",
+      "username" -> to,
+      "message" -> message,
+      "baseUrl" -> config.getString("blue.base-url"))
+    Try(mailer.send(to, title, email))
+  }
+
+  private def defaultNotifications(userid: String) =
+    Notifications(
+      s"$userid:notifications",
+      config.getBoolean("blue.notifications.email"),
+      config.getBoolean("blue.notifications.api"))
 
 
 }

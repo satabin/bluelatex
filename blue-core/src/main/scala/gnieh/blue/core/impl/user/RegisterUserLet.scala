@@ -145,9 +145,7 @@ class RegisterUserLet(val couch: CouchClient, config: Config, context: BundleCon
             Notifications(
               s"$userid:notifications",
               config.getBoolean("blue.notifications.email"),
-              config.getBoolean("blue.notifications.api"),
-              config.getBoolean("blue.notifications.new-papers"),
-              Nil)
+              config.getBoolean("blue.notifications.api"))
           (for {
             () <- manager.create(userid, Some("blue-user"))
             user <- manager.saveComponent(userid, user)

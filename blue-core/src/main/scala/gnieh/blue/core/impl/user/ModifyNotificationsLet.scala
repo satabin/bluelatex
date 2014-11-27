@@ -96,9 +96,7 @@ class ModifyNotificationsLet(
       Notifications(
         s"$userid:notifications",
         config.getBoolean("blue.notifications.email"),
-        config.getBoolean("blue.notifications.api"),
-        config.getBoolean("blue.notifications.new-papers"),
-        Nil)
+        config.getBoolean("blue.notifications.api"))
 
     private def patchAndSave(userid: String, notifications: Notifications, knownRev: Option[String])(implicit talk: HTalk) =
       talk.readJson[JsonPatch] match {
