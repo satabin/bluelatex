@@ -106,6 +106,36 @@ angular.module("bluelatex.User.Services.User", ["ngResource", 'angular-data.DSCa
             ].concat($http.defaults.transformRequest)
           }
         });
+        var notifSettings = $resource(api_prefix + "/users/:username/notifications", {
+          username: "@username"
+        }, {
+          "get": {
+            method: "get",
+            format: 'json',
+            transformResponse: [
+
+              function (data, headersGetter) {
+                data = JSON.parse(data);
+                var headers = headersGetter();
+                data.etag = headers.etag;
+                return data;
+              }
+            ].concat($http.defaults.transformResponse)
+          },
+          "modify": {
+            'method': 'PATCH',
+            headers: {
+              'Content-Type': 'application/json-patch'
+            },
+            transformRequest: [
+              function (data, headersGetter) {
+                var header = headersGetter();
+                header['If-Match'] = data.etag;
+                return data.path_json;
+              }
+            ].concat($http.defaults.transformRequest)
+          }
+        });
         var register = $resource(api_prefix + "/users", null, {
           "register": {
             method: "POST",
@@ -155,6 +185,25 @@ angular.module("bluelatex.User.Services.User", ["ngResource", 'angular-data.DSCa
             }
             return promise;
           },
+          getNotificationsSettings: function (user) {
+            var deferred = $q.defer();
+            var promise = deferred.promise;
+            if (_dataCache.get('/users/' + user.name + '/notifications')) deferred.resolve(_dataCache.get('/users/' + user.name + '/notifications'));
+            else {
+              notifSettings.get({
+                username: user.name
+              }).$promise.then(function (data) {
+                _dataCache.put('/users/' + user.name + '/notifications', data);
+                deferred.resolve(data);
+              }, function (error) {
+                $log.error(error);
+                deferred.reject(error);
+              }, function (progress) {
+                deferred.notify(progress);
+              });
+            }
+            return promise;
+          },
           getUsers: function (search) {
             var deferred = $q.defer();
             var promise = deferred.promise;
@@ -184,6 +233,27 @@ angular.module("bluelatex.User.Services.User", ["ngResource", 'angular-data.DSCa
             }, {
               "etag": etag,
               path_json: path_json
+            }).$promise.then(function (data) {
+              deferred.resolve(data);
+            }, function (error) {
+              $log.error(error);
+              deferred.reject(error);
+            }, function (progress) {
+              deferred.notify(progress);
+            });
+            return promise;
+          },
+          saveNotificationSettings: function(username, settings, oldsettings) {
+            var etag = oldsettings.etag;
+            var patch_json = jsonpatch.compare(oldsettings,settings);
+            var deferred = $q.defer();
+            var promise = deferred.promise;
+            _dataCache.remove('/users/' + username + '/notifications');
+            notifSettings.modify({
+              username: username
+            }, {
+              "etag": etag,
+              path_json: patch_json
             }).$promise.then(function (data) {
               deferred.resolve(data);
             }, function (error) {

@@ -36,6 +36,7 @@ angular.module("bluelatex.User.Controllers.Profile",['bluelatex.User.Services.Us
               config) {
       $scope.requesting = false;
       var user;
+      var notificationsSettings;
 
       reCAPTCHA.setOptions({
          theme: 'clean'
@@ -52,9 +53,16 @@ angular.module("bluelatex.User.Controllers.Profile",['bluelatex.User.Services.Us
         user = clone($scope.user);
       });
       /**
+       * Get the notification settings
+       */
+      UserService.getNotificationsSettings($rootScope.loggedUser).then(function(data) {
+        $scope.notificationsSettings = data;
+        notificationsSettings = clone($scope.notificationsSettings);
+      });
+      /**
       * delete the user
       */
-      $scope.delete = function () {      
+      $scope.delete = function () {
         $scope.requesting = true;
         if(!confirm(localize.getLocalizedString('_Delete_account_confirm_'))) {
           $scope.requesting = false;
@@ -130,6 +138,45 @@ angular.module("bluelatex.User.Controllers.Profile",['bluelatex.User.Services.Us
         $scope.requesting = true;
         MessagesService.clear();
         UserService.save($scope.user,user).then(function (data) {
+          MessagesService.messageSession('_Edit_profile_success_',data);
+          UserService.getInfo($rootScope.loggedUser).then(function(data) {
+            $rootScope.loggedUser = data;
+          });
+          $location.path("/papers");
+        }, function (err) {
+          switch (err.status) {
+          case 304:
+            MessagesService.error('_Edit_profile_No_enough_data_',err);
+            break;
+          case 401:
+            MessagesService.error('_Edit_profile_User_must_be_authenticated_',err);
+            break;
+          case 403:
+            MessagesService.error('_Edit_profile_Not_authorized_to_modifiy_the_user_data_',err);
+            break;
+          case 404:
+            MessagesService.error('_Edit_profile_User_does_not_exist_',err);
+            break;
+          case 409:
+            MessagesService.error('_Edit_profile_No_revision_obsolete_revision_was_provided_in_the_request_',err);
+            break;
+          case 500:
+            MessagesService.error('_Edit_profile_Something_wrong_happened_',err);
+            break;
+          default:
+            MessagesService.error('_Edit_profile_Something_wrong_happened_',err);
+          }
+        }).finally(function() {
+          $scope.requesting = false;
+        });
+      };
+      /**
+      * Edit the user notification preferences
+      */
+      $scope.editNotifications = function () {
+        $scope.requesting = true;
+        MessagesService.clear();
+        UserService.saveNotificationSettings($scope.user.name,$scope.notificationsSettings,notificationsSettings).then(function (data) {
           MessagesService.messageSession('_Edit_profile_success_',data);
           UserService.getInfo($rootScope.loggedUser).then(function(data) {
             $rootScope.loggedUser = data;

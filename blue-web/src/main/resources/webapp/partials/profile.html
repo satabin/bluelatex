@@ -63,6 +63,30 @@
         </div>
         <button type="submit" data-i18n="_Save_" ng-click="edit()" ng-disabled="!editProfileForm.$valid || requesting"  ng-class="{'process': requesting}"></button>
     </form>
+    <h2 data-i18n="_Notification_settings_"></h2>
+    <form name="editNotificationsForm">
+      <div class="grid">
+        <div class="col c1-3">
+          <label for="email-notifications" i18n-Tooltip="_email_notifications_tooltip_">Email Notifications</label>
+        </div>
+        <div class="col c2-3 form-group">
+          <input id="email-notifications" type="checkbox" ng-model="notificationsSettings.email_notifications" style="display: none">
+          <label for="email-notifications" ng-if="notificationsSettings.email_notifications" data-i18n="_On_"></label>
+          <label for="email-notifications" ng-if="!notificationsSettings.email_notifications" data-i18n="_Off_"></label>
+        </div>
+      </div>
+      <div class="grid">
+        <div class="col c1-3">
+          <label for="api-notifications" i18n-Tooltip="_api_notifications_tooltip_">UI Notifications</label>
+        </div>
+        <div class="col c2-3 form-group">
+          <input id="api-notifications" type="checkbox" ng-model="notificationsSettings.api_notifications" style="display: none">
+          <label for="api-notifications" ng-if="notificationsSettings.api_notifications" data-i18n="_On_"></label>
+          <label for="api-notifications" ng-if="!notificationsSettings.api_notifications" data-i18n="_Off_"></label>
+        </div>
+      </div>
+      <button type="submit" data-i18n="_Save_" ng-click="editNotifications()" ng-disabled="requesting"  ng-class="{'process': requesting}"></button>
+    </form>
     <h2 data-i18n="_Reset_password_"></h2>
     <button  data-i18n="_Reset_password_" ng-click="reset()" ng-disabled="requesting"  ng-class="{'process': requesting}"></button>
     <h2 data-i18n="_Delete_account_"></h2>
