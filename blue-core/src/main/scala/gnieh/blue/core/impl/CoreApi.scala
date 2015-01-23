@@ -96,6 +96,9 @@ class CoreApi(
     // gets the data of the given user
     case p"users/$username/info" =>
       new GetUserInfoLet(username, couch, config, logger)
+    // gets the notifications settings of the given user
+    case p"users/$username/notifications" =>
+      new GetNotificationSettingsLet(username, couch, config, logger)
     // gets the list of papers the given user is involved in
     case p"users/$username/papers" =>
       new GetUserPapersLet(username, couch, config, logger)

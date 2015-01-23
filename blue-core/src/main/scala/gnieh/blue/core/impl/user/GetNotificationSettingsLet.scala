@@ -42,10 +42,14 @@ class GetNotificationSettingsLet(username: String, val couch: CouchClient, confi
   def authenticatedAct(user: UserInfo)(implicit talk: HTalk): Try[Unit] =
     if(user.name == username) {
       // only authenticated users may see other people information
-      entityManager("blue_users").getComponent[Notifications](s"org.couchdb.user:$username") map {
+      val manager = entityManager("blue_users")
+      manager.getComponent[Notifications](s"org.couchdb.user:$username") flatMap {
         // we are sure that the user has a revision because it comes from the database
-        case Some(nots) => talk.writeJson(nots, nots._rev.get)
-        case None       => talk.setStatus(HStatus.NotFound).writeJson(ErrorResponse("not_found", s"No user named $username found"))
+        case Some(nots) => Success(talk.writeJson(nots, nots._rev.get))
+        case None       =>
+          manager.saveComponent(s"org.couchdb.user:$username", defaultSettings) map { settings =>
+            talk.writeJson(settings, settings._rev.get)
+          }
       }
     } else {
       Success(
@@ -53,6 +57,10 @@ class GetNotificationSettingsLet(username: String, val couch: CouchClient, confi
           .writeJson(ErrorResponse("no_sufficient_rights", "Users may only see their own notification settings")))
     }
 
+  val defaultSettings =
+    Notifications(
+      s"org.couchdb.user:$username:notifications",
+      config.getBoolean("blue.notifications.email"),
+      config.getBoolean("blue.notifications.api"))
+
 }
-
-
