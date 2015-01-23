@@ -19,7 +19,10 @@ package impl
 package paper
 
 import http._
-import couch.PaperRole
+import couch.{
+  Paper,
+  PaperRole
+}
 import common._
 import permission._
 
@@ -42,7 +45,7 @@ import gnieh.sohva.control.CouchClient
  *
  *  @author Lucas Satabin
  */
-class ModifyRolesLet(paperId: String, val couch: CouchClient, config: Config, logger: Logger) extends SyncRoleLet(paperId, config, logger) {
+class ModifyRolesLet(paperId: String, val couch: CouchClient, config: Config, templates: Templates, mailAgent: MailAgent, logger: Logger) extends SyncRoleLet(paperId, config, logger) {
 
   def roleAct(user: UserInfo, role: Role)(implicit talk: HTalk): Try[Unit] = role match {
     case Author =>
@@ -66,7 +69,10 @@ class ModifyRolesLet(paperId: String, val couch: CouchClient, config: Config, lo
                   for(r <- manager.saveComponent(paperId, roles2))
                     // save successfully, return ok with the new ETag
                     // we are sure that the revision is not empty because it comes from the database
-                    yield talk.writeJson(true, r._rev.get)
+                    yield {
+                      notify(roles2.authors.users.diff(roles.authors.users).toList, roles2.reviewers.users.diff(roles.reviewers.users).toList)
+                      talk.writeJson(true, r._rev.get)
+                    }
                 case None =>
                   // nothing to do
                   Success(
@@ -109,6 +115,16 @@ class ModifyRolesLet(paperId: String, val couch: CouchClient, config: Config, lo
         talk
           .setStatus(HStatus.Forbidden)
           .writeJson(ErrorResponse("no_sufficient_rights", "Only authors may modify the list of involved people")))
+  }
+
+  private def notify(newAuthors: List[String], newReviewers: List[String])(implicit talk: HTalk): Unit = {
+    val manager = entityManager("blue_papers")
+    for(Some(Paper(_, name, _)) <- manager.getComponent[Paper](paperId)) {
+      for(author <- newAuthors)
+        sendNotifications(mailAgent, templates, author, "Welcome on your new paper!", f"You have been added as author on paper $name")
+      for(reviewer <- newReviewers)
+        sendNotifications(mailAgent, templates, reviewer, "Welcome on your new paper!", f"You have been added as reviewer on paper $name")
+    }
   }
 
 }

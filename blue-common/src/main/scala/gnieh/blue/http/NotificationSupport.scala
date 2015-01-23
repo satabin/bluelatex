@@ -58,7 +58,7 @@ trait NotificationSupport {
   /** Sends notification message to the given username, according to its own notification settings. */
   def sendNotifications(mailer: MailAgent, templates: Templates, to: String, title: String, description: String)(implicit talk: HTalk): Try[Unit] = {
     // first get notification settings for the user
-    val userid = f"org.couch.user:$to"
+    val userid = f"org.couchdb.user:$to"
     val manager = entityManager("blue_users")
     manager.getComponent[Notifications](userid).flatMap {
       case Some(Notifications(_, email, api)) =>

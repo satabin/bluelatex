@@ -84,7 +84,7 @@ class CoreApi(
       new ModifyPaperLet(paperid, couch, config, logger)
     // add or remove people involved in this paper (authors, reviewers)
     case p"papers/$paperid/roles" =>
-      new ModifyRolesLet(paperid, couch, config, logger)
+      new ModifyRolesLet(paperid, couch, config, templates, mailAgent, logger)
   }
 
   private val GetUsersLet = new GetUsersLet(couch, config, logger)

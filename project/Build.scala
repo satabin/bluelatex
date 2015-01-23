@@ -24,6 +24,7 @@ class BlueBuild extends Build with Pack with Server with Distrib with Tests {
     base = file(".")) settings (
       resolvers in ThisBuild += "Typesafe Repository" at "http://repo.typesafe.com/typesafe/releases/",
       resolvers in ThisBuild += "Sonatype Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots/",
+      resolvers in ThisBuild += "Sonatype Releases" at "https://oss.sonatype.org/content/repositories/releases/",
       organization in ThisBuild := "org.gnieh",
       name := "bluelatex",
       version in ThisBuild := blueVersion,
@@ -71,20 +72,20 @@ class BlueBuild extends Build with Pack with Server with Distrib with Tests {
     "org.apache.pdfbox" % "pdfbox" % "1.8.4" exclude("commons-logging", "commons-logging"),
     "commons-beanutils" % "commons-beanutils" % "1.8.3" exclude("commons-logging", "commons-logging"),
     "commons-collections" % "commons-collections" % "3.2.1",
-    "com.typesafe.akka" %% "akka-osgi" % "2.3.1",
+    "com.typesafe.akka" %% "akka-osgi" % "2.3.9",
     "org.gnieh" %% "tekstlib" % "0.1.0-SNAPSHOT",
-    "org.gnieh" %% "sohva-client" % "1.1.0-SNAPSHOT",
-    "org.gnieh" %% "sohva-entities" % "1.1.0-SNAPSHOT",
-    "org.gnieh" %% "diffson" % "0.3",
+    "org.gnieh" %% "sohva-client" % "1.1.1",
+    "org.gnieh" %% "sohva-entities" % "1.1.1",
+    "org.gnieh" %% "diffson" % "0.3.1",
     "javax.mail" % "mail" % "1.4.7",
     "ch.qos.logback" % "logback-classic" % "1.0.13",
     "org.slf4j" % "jcl-over-slf4j" % "1.7.5",
-    "com.jsuereth" %% "scala-arm" % "1.3",
+    "com.jsuereth" %% "scala-arm" % "1.4",
     "org.osgi" % "org.osgi.core" % "4.3.0" % "provided",
     "org.osgi" % "org.osgi.compendium" % "4.3.0" % "provided",
-    "com.typesafe" % "config" % "1.0.2",
+    "com.typesafe" % "config" % "1.2.1",
     "org.scalatest" %% "scalatest" % "2.2.0" % "test",
-    "com.typesafe.akka" %% "akka-testkit" % "2.3.1" % "test"
+    "com.typesafe.akka" %% "akka-testkit" % "2.3.9" % "test"
   )
 
   lazy val blueMobwrite =
