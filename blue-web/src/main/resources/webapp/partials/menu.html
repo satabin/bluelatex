@@ -12,11 +12,17 @@
         </ul>
       </div>
     </div>
+    <div id="menu_notifications" ng-if="loggedUser.name">
+      <a href="#/notifications">
+        <span ng-class="{'available': notification.length > 0}">
+        <span data-i18n="_Notifications_"></span>
+      </a>
+    </div>
     <div id="git">
       <a ng-href="{{config.clone_url}}" target="_blank" ng-if="config.clone_url">
         <span class="icon icon-fork"></span>
         <span data-i18n="_Clone_me_"></span>
-      </a> 
+      </a>
       <a ng-href="{{config.issues_url}}" target="_blank" ng-if="config.issues_url">
         <span class="icon icon-exclamation"></span>
         <span data-i18n="_Report_an_issue_"></span>
